@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronRight, CircleDot, Dice5, Radio, RotateCcw, Share2, Shield, Sparkles, Swords, Trophy } from "lucide-react";
+import { Check, ChevronRight, CircleDot, Dice5, Radio, RotateCcw, Share2, Shield, Sparkles, Swords, Trophy, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import teamsData from "@/data/historic-teams.json";
 
