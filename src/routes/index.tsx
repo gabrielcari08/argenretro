@@ -59,7 +59,10 @@ function Index() {
   const [showIntro, setShowIntro] = useState(true);
   const liveStartedAt = useRef(0);
 
-  const startGame = () => { setShowIntro(false); };
+  const startGame = () => {
+    if (username.trim()) window.localStorage.setItem(USER_KEY, username.trim());
+    setShowIntro(false);
+  };
   const USER_KEY = "argenretro-xi-user";
 
   useEffect(() => {
