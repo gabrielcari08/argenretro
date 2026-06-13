@@ -58,6 +58,9 @@ function Index() {
   const [showIntro, setShowIntro] = useState(true);
   const liveStartedAt = useRef(0);
 
+  const startGame = () => { setShowIntro(false); };
+  const USER_KEY = "argenretro-xi-user";
+
   useEffect(() => {
     const saved = window.localStorage.getItem(SAVE_KEY);
     const scores = window.localStorage.getItem(RANK_KEY);
