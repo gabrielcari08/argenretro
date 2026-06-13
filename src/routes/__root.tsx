@@ -77,11 +77,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "El Dado de las Leyendas" },
-      { name: "description", content: "Armá tu once ideal con leyendas de 32 equipos históricos del fútbol argentino." },
-      { name: "author", content: "El Dado de las Leyendas" },
-      { property: "og:title", content: "El Dado de las Leyendas" },
-      { property: "og:description", content: "Tirá el dado y armá tu once ideal del fútbol argentino." },
+      { title: "ARGENRETRO XI" },
+      { name: "description", content: "Armá tu XI histórico y conquistá el torneo definitivo del fútbol argentino." },
+      { name: "author", content: "ARGENRETRO XI" },
+      { property: "og:title", content: "ARGENRETRO XI" },
+      { property: "og:description", content: "La historia del fútbol argentino juega de nuevo." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
@@ -93,7 +93,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@400;600;700;800&display=swap" },
+      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Teko:wght@500;600;700&display=swap" },
     ],
   }),
   shellComponent: RootShell,
@@ -104,7 +104,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="es">
       <head>
         <HeadContent />
       </head>

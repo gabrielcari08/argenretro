@@ -1,148 +1,156 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef, useState } from "react";
-import { Check, ChevronRight, Dice5, Download, RotateCcw, Share2, Shield } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Check, ChevronRight, Dice5, RotateCcw, Share2, Shield, Sparkles, Swords, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import stadiumImage from "@/assets/estadio-leyendas.jpg";
+import teamsData from "@/data/historic-teams.json";
 
 export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "El Dado de las Leyendas | Armá tu once" },
-      { name: "description", content: "Tirá el dado, elegí leyendas de 32 clubes históricos y armá tu once ideal del fútbol argentino." },
-      { property: "og:title", content: "El Dado de las Leyendas" },
-      { property: "og:description", content: "¿Qué once te toca? Tirá el dado y elegí tus once leyendas." },
-    ],
-  }),
+  head: () => ({ meta: [
+    { title: "ARGENRETRO XI | Torneo histórico argentino" },
+    { name: "description", content: "Armá tu XI con cracks históricos y conquistá el torneo de eliminación directa de ARGENRETRO XI." },
+    { property: "og:title", content: "ARGENRETRO XI" },
+    { property: "og:description", content: "El torneo definitivo de equipos históricos del fútbol argentino." },
+  ] }),
   component: Index,
 });
 
-type Team = { name: string; short: string; colors: string; players: string[] };
-type Pick = { player: string; team: string; short: string; position: string };
+type HistoricTeam = { id: string; club: string; year: number; abbr: string; rating: number; players: [string, number][] };
+type Pick = { name: string; rating: number; teamId: string; club: string; year: number; abbr: string; position: string };
+type Match = { round: string; rival: string; rivalRating: number; userGoals: number; rivalGoals: number; scorers: string[]; possession: number; shots: number; won: boolean };
+type SavedGame = { picks: Pick[]; round: number; matches: Match[]; phase: Phase };
+type Phase = "build" | "ready" | "result" | "upgrade" | "lost" | "champion";
 
-const teams: Team[] = [
-  { name: "River Plate", short: "CARP", colors: "from-accent to-card", players: ["Ángel Labruna", "Enzo Francescoli", "Norberto Alonso", "Amadeo Carrizo", "Ariel Ortega", "Marcelo Gallardo"] },
-  { name: "Boca Juniors", short: "CABJ", colors: "from-secondary to-card", players: ["Juan R. Riquelme", "Martín Palermo", "Roberto Cherro", "Antonio Rattín", "Hugo Gatti", "Sebastián Battaglia"] },
-  { name: "Independiente", short: "CAI", colors: "from-destructive to-card", players: ["Ricardo Bochini", "Arsenio Erico", "José Pastoriza", "Miguel Santoro", "Daniel Bertoni", "Jorge Burruchaga"] },
-  { name: "Racing Club", short: "RAC", colors: "from-secondary to-card", players: ["Diego Milito", "Juan José Pizzuti", "Ubaldo Fillol", "Rubén Paz", "Roberto Perfumo", "Lisandro López"] },
-  { name: "San Lorenzo", short: "CASLA", colors: "from-secondary to-destructive", players: ["José Sanfilippo", "Héctor Scotta", "Leandro Romagnoli", "René Pontoni", "Victorio Cocco", "Sergio Villar"] },
-  { name: "Huracán", short: "CAH", colors: "from-muted to-card", players: ["René Houseman", "Carlos Babington", "Miguel Brindisi", "Herminio Masantonio", "Ringo Bonavena", "Alfio Basile"] },
-  { name: "Vélez Sarsfield", short: "CAVS", colors: "from-muted to-secondary", players: ["Carlos Bianchi", "José L. Chilavert", "Omar Asad", "Victorio Spinetto", "Christian Bassedas", "Fabián Cubero"] },
-  { name: "Argentinos Juniors", short: "AAAJ", colors: "from-destructive to-card", players: ["Diego Maradona", "Claudio Borghi", "Sergio Batista", "José Pékerman", "Fernando Redondo", "Juan Pablo Sorín"] },
-  { name: "Estudiantes LP", short: "EDELP", colors: "from-destructive to-muted", players: ["Juan S. Verón", "Carlos Bilardo", "Juan R. Verón", "Mariano Andújar", "Alejandro Sabella", "José L. Brown"] },
-  { name: "Gimnasia LP", short: "GELP", colors: "from-secondary to-muted", players: ["Guillermo Barros Schelotto", "Timoteo Griguol", "José Minella", "Carlos Carrió", "Pedro Troglio", "Jorge San Esteban"] },
-  { name: "Newell's Old Boys", short: "NOB", colors: "from-destructive to-card", players: ["Marcelo Bielsa", "Gerardo Martino", "Maxi Rodríguez", "Gabriel Batistuta", "Jorge Valdano", "Américo Gallego"] },
-  { name: "Rosario Central", short: "CARC", colors: "from-secondary to-primary", players: ["Mario Kempes", "Aldo Poy", "Ángel Di María", "Edgardo Bauza", "Omar Palma", "Kily González"] },
-  { name: "Talleres", short: "CAT", colors: "from-secondary to-muted", players: ["Daniel Willington", "Luis Galván", "José Valencia", "Miguel Oviedo", "Javier Pastore", "Ángel Labruna"] },
-  { name: "Belgrano", short: "CAB", colors: "from-secondary to-card", players: ["Juan C. Olave", "Luis Artime", "Tomás Cuellar", "César Pereyra", "Pablo Chavarría", "Guillermo Farré"] },
-  { name: "Instituto", short: "IACC", colors: "from-destructive to-muted", players: ["Mario Kempes", "Osvaldo Ardiles", "Paulo Dybala", "Hugo Curioni", "Diego Klimowicz", "Ramón Ábila"] },
-  { name: "Atlético Tucumán", short: "CATU", colors: "from-secondary to-muted", players: ["Luis Rodríguez", "Ricardo Villa", "Miguel Brandán", "Cristian Lucchetti", "José Fierro", "Fernando Zampedri"] },
-  { name: "San Martín Tucumán", short: "SMT", colors: "from-destructive to-muted", players: ["Jacinto Eusebio Roldán", "Miguel Sánchez", "Lito Espeche", "Santo Guarnaccia", "Carlos Morales", "Federico Lussenhoff"] },
-  { name: "Colón", short: "CAC", colors: "from-destructive to-card", players: ["Esteban Fuertes", "José Vignatti", "Adrián Marini", "Hugo Ibarra", "Pulga Rodríguez", "Facundo Garcés"] },
-  { name: "Unión", short: "CAU", colors: "from-destructive to-muted", players: ["Leopoldo Luque", "Nery Pumpido", "Víctor Bottaniz", "Fernando Alí", "Cristian González", "Lautaro Acosta"] },
-  { name: "Banfield", short: "CABF", colors: "from-accent to-muted", players: ["Javier Sanguinetti", "Julio C. Falcioni", "James Rodríguez", "Darío Cvitanich", "Eliseo Mouriño", "José Sand"] },
-  { name: "Lanús", short: "CAL", colors: "from-destructive to-card", players: ["José Sand", "Héctor Cúper", "Lautaro Acosta", "Diego Valeri", "Ramón Cabrero", "Luis Zubeldía"] },
-  { name: "Ferro Carril Oeste", short: "FCO", colors: "from-accent to-card", players: ["Carlos Griguol", "Héctor Cúper", "Oscar Garré", "Alberto Márcico", "Gerónimo Saccardi", "Juampi Carrizo"] },
-  { name: "Chacarita Juniors", short: "CACh", colors: "from-destructive to-card", players: ["Ángel Marcos", "Carlos María García Cambón", "Horacio Neumann", "Victorio Spinetto", "Isaac López", "Jorge Ribolzi"] },
-  { name: "Atlanta", short: "CAAt", colors: "from-primary to-secondary", players: ["Osvaldo Zubeldía", "Luis Artime", "Hugo Gatti", "Carlos Timoteo Griguol", "Néstor Errea", "Juan Gómez Voglino"] },
-  { name: "Quilmes", short: "QAC", colors: "from-muted to-secondary", players: ["José Yudica", "Omar Gómez", "Miguel López", "Walter Benítez", "Rodrigo Braña", "Sergio Martínez"] },
-  { name: "Arsenal", short: "ARS", colors: "from-secondary to-destructive", players: ["Jorge Burruchaga", "Gustavo Alfaro", "Carlos Ruiz", "Alejandro Limia", "Martín Andrizzi", "Luciano Leguizamón"] },
-  { name: "Defensa y Justicia", short: "DYJ", colors: "from-primary to-accent", players: ["Hernán Crespo", "Sebastián Beccacece", "Nicolás Fernández", "Ezequiel Unsain", "Adonis Frías", "Enzo Fernández"] },
-  { name: "Godoy Cruz", short: "GCT", colors: "from-secondary to-muted", players: ["Santiago García", "Daniel Oldrá", "Rodrigo Rey", "David Ramírez", "Nicolás Sánchez", "Martín Ojeda"] },
-  { name: "Patronato", short: "CAP", colors: "from-destructive to-card", players: ["Sebastián Bértoli", "Walter Andrade", "Marcelo Fuentes", "Matías Quiroga", "Gabriel Graciani", "Carlos Quintana"] },
-  { name: "Tigre", short: "CATI", colors: "from-secondary to-destructive", players: ["Bernabé Ferreyra", "Diego Castaño", "Martín Galmarini", "Lucas Menossi", "Carlos Luna", "Mateo Retegui"] },
-  { name: "Platense", short: "CAPL", colors: "from-card to-muted", players: ["Vicente Sayago", "Carlos Bianchi", "Julio Cozzi", "Daniel Vega", "Marcelo Espina", "David Trezeguet"] },
-  { name: "All Boys", short: "CAAB", colors: "from-muted to-card", players: ["José Santos Romero", "Pepe Romero", "Carlos Tevez", "Nicolás Cambiasso", "Jonathan Calleri", "Agustín Torassa"] },
-];
+const teams = teamsData as HistoricTeam[];
+const rounds = ["Octavos", "Cuartos", "Semifinal", "Final"];
+const positions = ["ARQ", "LD", "DFC", "DFC", "LI", "MCD", "MC", "MC", "ED", "DC", "EI"];
+const fieldSpots = ["top-[88%] left-1/2", "top-[69%] left-[82%]", "top-[74%] left-[61%]", "top-[74%] left-[39%]", "top-[69%] left-[18%]", "top-[54%] left-1/2", "top-[43%] left-[72%]", "top-[43%] left-[28%]", "top-[23%] left-[79%]", "top-[14%] left-1/2", "top-[23%] left-[21%]"];
+const SAVE_KEY = "argenretro-xi-save";
+const RANK_KEY = "argenretro-xi-ranking";
 
-const positions = ["Arquero", "Lateral derecho", "Central derecho", "Central izquierdo", "Lateral izquierdo", "Volante central", "Interior derecho", "Interior izquierdo", "Extremo derecho", "Delantero", "Extremo izquierdo"];
-const fieldSpots = ["top-[86%] left-1/2", "top-[67%] left-[79%]", "top-[72%] left-[60%]", "top-[72%] left-[40%]", "top-[67%] left-[21%]", "top-[51%] left-1/2", "top-[43%] left-[73%]", "top-[43%] left-[27%]", "top-[23%] left-[78%]", "top-[13%] left-1/2", "top-[23%] left-[22%]"];
+const randomTeam = (excluded: string[] = []) => {
+  const pool = teams.filter((team) => !excluded.includes(team.id));
+  return pool[Math.floor(Math.random() * pool.length)] ?? teams[0];
+};
+
+function Crest({ team, large = false }: { team: HistoricTeam; large?: boolean }) {
+  return <div className={`crest grid place-items-center bg-primary text-primary-foreground shadow-lg ${large ? "h-24 w-20 text-xl" : "h-12 w-10 text-[10px]"}`}><span className="font-black">{team.abbr}</span><small className="text-[8px] font-bold">{team.year}</small></div>;
+}
 
 function Index() {
-  const [currentTeam, setCurrentTeam] = useState<Team | null>(null);
   const [picks, setPicks] = useState<Pick[]>([]);
+  const [round, setRound] = useState(0);
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [phase, setPhase] = useState<Phase>("build");
+  const [drawn, setDrawn] = useState<HistoricTeam | null>(null);
   const [rolling, setRolling] = useState(false);
-  const resultRef = useRef<HTMLDivElement>(null);
-  const completed = picks.length === positions.length;
+  const [replaceIndex, setReplaceIndex] = useState<number | null>(null);
+  const [ranking, setRanking] = useState<number[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem(SAVE_KEY);
+    const scores = window.localStorage.getItem(RANK_KEY);
+    if (saved) { try { const game = JSON.parse(saved) as SavedGame; setPicks(game.picks); setRound(game.round); setMatches(game.matches); setPhase(game.phase); } catch { window.localStorage.removeItem(SAVE_KEY); } }
+    if (scores) { try { setRanking(JSON.parse(scores) as number[]); } catch { window.localStorage.removeItem(RANK_KEY); } }
+    setLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!loaded) return;
+    window.localStorage.setItem(SAVE_KEY, JSON.stringify({ picks, round, matches, phase } satisfies SavedGame));
+  }, [loaded, matches, phase, picks, round]);
+
+  const overall = picks.length ? Math.round(picks.reduce((sum, pick) => sum + pick.rating, 0) / picks.length) : 0;
+  const usedPlayers = picks.map((pick) => pick.name);
+  const usedTeams = picks.map((pick) => pick.teamId);
 
   const roll = () => {
-    if (rolling || completed) return;
-    setRolling(true);
-    window.setTimeout(() => {
-      setCurrentTeam(teams[Math.floor(Math.random() * teams.length)]);
-      setRolling(false);
-    }, 700);
+    if (rolling) return;
+    setRolling(true); setDrawn(null);
+    window.setTimeout(() => { setDrawn(randomTeam(phase === "build" ? usedTeams : [])); setRolling(false); }, 850);
   };
 
-  const choose = (player: string) => {
-    if (!currentTeam || picks.some((pick) => pick.player === player)) return;
-    setPicks((value) => [...value, { player, team: currentTeam.name, short: currentTeam.short, position: positions[value.length] }]);
-    setCurrentTeam(null);
+  const choose = (name: string, rating: number) => {
+    if (!drawn || usedPlayers.includes(name)) return;
+    const next: Pick = { name, rating, teamId: drawn.id, club: drawn.club, year: drawn.year, abbr: drawn.abbr, position: replaceIndex === null ? positions[picks.length] : positions[replaceIndex] };
+    if (replaceIndex !== null) {
+      setPicks((current) => current.map((pick, index) => index === replaceIndex ? next : pick));
+      setReplaceIndex(null); setDrawn(null); setPhase("ready"); return;
+    }
+    setPicks((current) => { const value = [...current, next]; if (value.length === 11) setPhase("ready"); return value; });
+    setDrawn(null);
   };
 
-  const reset = () => { setPicks([]); setCurrentTeam(null); };
-
-  const download = () => {
-    const canvas = document.createElement("canvas");
-    canvas.width = 1200; canvas.height = 1200;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.fillStyle = "#123d2a"; ctx.fillRect(0, 0, 1200, 1200);
-    ctx.strokeStyle = "#d8d2ad"; ctx.lineWidth = 6; ctx.strokeRect(80, 170, 1040, 940);
-    ctx.beginPath(); ctx.moveTo(80, 640); ctx.lineTo(1120, 640); ctx.stroke();
-    ctx.beginPath(); ctx.arc(600, 640, 120, 0, Math.PI * 2); ctx.stroke();
-    ctx.fillStyle = "#e9b84b"; ctx.textAlign = "center"; ctx.font = "74px sans-serif"; ctx.fillText("EL DADO DE LAS LEYENDAS", 600, 105);
-    const coords = [[600,1040],[900,850],[700,900],[500,900],[300,850],[600,690],[850,570],[350,570],[900,350],[600,270],[300,350]];
-    picks.forEach((pick, index) => { const [x,y] = coords[index]; ctx.fillStyle = "#efe9d2"; ctx.beginPath(); ctx.arc(x,y,46,0,Math.PI*2); ctx.fill(); ctx.fillStyle="#102d22"; ctx.font="bold 24px sans-serif"; ctx.fillText(pick.short,x,y+8); ctx.fillStyle="#efe9d2"; ctx.font="bold 22px sans-serif"; ctx.fillText(pick.player,x,y+82); });
-    const link = document.createElement("a"); link.download = "mi-once-de-leyendas.png"; link.href = canvas.toDataURL("image/png"); link.click();
+  const simulate = () => {
+    const rival = randomTeam();
+    const edge = overall - rival.rating;
+    const userGoals = Math.max(0, Math.min(5, Math.floor(Math.random() * 3 + (edge + 8) / 14)));
+    let rivalGoals = Math.max(0, Math.min(5, Math.floor(Math.random() * 3 + (-edge + 8) / 14)));
+    if (userGoals === rivalGoals) rivalGoals += Math.random() < 0.58 + edge / 100 ? -1 : 1;
+    rivalGoals = Math.max(0, rivalGoals);
+    const won = userGoals > rivalGoals;
+    const scorers = Array.from({ length: userGoals }, (_, index) => picks[(index * 3 + Math.floor(Math.random() * picks.length)) % picks.length]?.name ?? "Gol en contra");
+    const match: Match = { round: rounds[round], rival: `${rival.club} ${rival.year}`, rivalRating: rival.rating, userGoals, rivalGoals, scorers, possession: Math.max(38, Math.min(64, 51 + edge + Math.floor(Math.random() * 7) - 3)), shots: 7 + userGoals * 2 + Math.floor(Math.random() * 6), won };
+    setMatches((value) => [...value, match]);
+    if (!won) { setPhase("lost"); saveRanking(overall); }
+    else if (round === 3) { setPhase("champion"); saveRanking(overall); }
+    else setPhase("result");
   };
+
+  const saveRanking = (score: number) => {
+    const next = [...ranking, score].sort((a, b) => b - a).slice(0, 5);
+    setRanking(next); window.localStorage.setItem(RANK_KEY, JSON.stringify(next));
+  };
+
+  const continueRound = (change: boolean) => { setRound((value) => value + 1); setPhase(change ? "upgrade" : "ready"); setDrawn(null); };
+  const reset = () => { setPicks([]); setRound(0); setMatches([]); setPhase("build"); setDrawn(null); setReplaceIndex(null); window.localStorage.removeItem(SAVE_KEY); };
+  const share = async () => { const text = `Mi ARGENRETRO XI tiene ${overall} de valoración. ¿Podés superarlo?`; if (navigator.share) await navigator.share({ title: "ARGENRETRO XI", text, url: window.location.href }); else await navigator.clipboard.writeText(`${text} ${window.location.href}`); };
+  const lastMatch = matches[matches.length - 1];
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-background">
-      <img src={stadiumImage} alt="Estadio argentino iluminado al atardecer" width={1536} height={1024} className="fixed inset-0 h-full w-full object-cover opacity-25" />
-      <div className="fixed inset-0 bg-gradient-to-b from-background/80 via-background/90 to-background" />
-      <div className="relative mx-auto max-w-7xl px-4 py-6 sm:px-8">
-        <header className="flex items-center justify-between border-b border-border pb-5">
-          <div className="flex items-center gap-3"><Shield className="size-8 text-primary" /><div><p className="display-type text-2xl tracking-wide">El Dado de las Leyendas</p><p className="text-[10px] font-bold uppercase tracking-[.3em] text-muted-foreground">Fútbol argentino</p></div></div>
-          <Button variant="stadium" size="sm" onClick={reset}><RotateCcw /> Reiniciar</Button>
-        </header>
+    <main className="min-h-screen bg-background text-foreground">
+      <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-4 px-4 py-3 sm:px-7">
+          <div className="flex items-center gap-3"><div className="grid size-10 place-items-center rounded-xl bg-secondary text-secondary-foreground"><Shield /></div><div><p className="display-type text-2xl leading-none tracking-wider">ARGEN<span className="text-secondary">RETRO</span> XI</p><p className="text-[9px] font-black uppercase tracking-[.28em] text-muted-foreground">La historia juega de nuevo</p></div></div>
+          <div className="hidden items-center gap-2 md:flex">{rounds.map((name, index) => <div key={name} className={`rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-wider ${index < round ? "border-primary bg-primary text-primary-foreground" : index === round ? "border-secondary text-secondary" : "border-border text-muted-foreground"}`}>{index < round && <Check className="mr-1 inline size-3"/>}{name}</div>)}</div>
+          <Button variant="stadium" size="sm" onClick={reset}><RotateCcw/><span className="hidden sm:inline">Nueva partida</span></Button>
+        </div>
+      </header>
 
-        {!completed ? (
-          <section className="grid min-h-[calc(100vh-110px)] items-center gap-10 py-10 lg:grid-cols-[.8fr_1.2fr]">
-            <div className="animate-rise">
-              <p className="mb-3 text-xs font-extrabold uppercase tracking-[.28em] text-secondary">Elección {picks.length + 1} de 11</p>
-              <h1 className="display-type max-w-xl text-6xl leading-[.9] tracking-wide sm:text-8xl">Tu equipo.<br/><span className="text-primary">Tu historia.</span></h1>
-              <p className="mt-6 max-w-md text-base leading-relaxed text-muted-foreground">El azar elige el club. Vos elegís la leyenda que ocupará el puesto de <strong className="text-foreground">{positions[picks.length]}</strong>.</p>
-              <div className="mt-8 flex flex-wrap gap-2">{positions.map((position, index) => <span key={position} className={`grid size-8 place-items-center rounded-full border text-xs font-bold ${index < picks.length ? "border-primary bg-primary text-primary-foreground" : index === picks.length ? "border-secondary text-secondary" : "border-border text-muted-foreground"}`}>{index < picks.length ? <Check className="size-3"/> : index + 1}</span>)}</div>
-            </div>
+      <div className="mx-auto grid max-w-[1500px] gap-5 p-4 lg:grid-cols-[280px_minmax(390px,1fr)_390px] lg:p-6">
+        <aside className="order-2 space-y-4 lg:order-1">
+          <section className="rounded-3xl border border-border bg-card p-5"><p className="eyebrow">Torneo nacional</p><h2 className="display-type mt-1 text-4xl tracking-wide">{phase === "champion" ? "CAMPEÓN" : rounds[round]}</h2><div className="mt-5 space-y-3">{rounds.map((name, index) => { const match = matches[index]; return <div key={name} className={`relative border-l-2 pl-4 ${index === round ? "border-secondary" : match?.won ? "border-primary" : "border-border"}`}><p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{name}</p><p className="mt-1 text-sm font-bold">{match ? `XI ${match.userGoals} — ${match.rivalGoals} ${match.rival.split(" ")[0]}` : index === round ? "Próximo cruce" : "Por definir"}</p></div>; })}</div></section>
+          <section className="rounded-3xl border border-border bg-card p-5"><p className="eyebrow">Hall de la fama</p><h3 className="mt-1 font-extrabold">Mejores valoraciones</h3><div className="mt-4 space-y-2">{ranking.length ? ranking.map((score, index) => <div key={`${score}-${index}`} className="flex items-center justify-between rounded-xl bg-muted px-3 py-2 text-sm"><span>#{index + 1} Selección retro</span><b className="text-primary">{score}</b></div>) : <p className="text-xs leading-relaxed text-muted-foreground">Terminá una campaña para ingresar al ranking local.</p>}</div></section>
+        </aside>
 
-            <div className="flex min-h-[540px] items-center justify-center">
-              {!currentTeam ? (
-                <div className="text-center">
-                  <button aria-label="Lanzar el dado" onClick={roll} disabled={rolling} className="group mx-auto grid size-52 cursor-pointer place-items-center rounded-[2.5rem] border border-primary/30 bg-card/70 shadow-[var(--shadow-gold)] backdrop-blur-xl transition-transform hover:-translate-y-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/50 disabled:pointer-events-none sm:size-64">
-                    <Dice5 className={`size-28 text-primary sm:size-36 ${rolling ? "animate-dice" : "transition-transform group-hover:rotate-12"}`} strokeWidth={1.4}/>
-                  </button>
-                  <Button variant="legend" size="xl" onClick={roll} disabled={rolling} className="mt-8">{rolling ? "El destino decide…" : "Lanzar el dado"}<ChevronRight /></Button>
-                  <p className="mt-4 text-xs uppercase tracking-[.2em] text-muted-foreground">32 clubes · cientos de leyendas</p>
-                </div>
-              ) : (
-                <div className="animate-rise w-full max-w-2xl overflow-hidden rounded-3xl border border-border bg-card/85 shadow-2xl backdrop-blur-xl">
-                  <div className={`bg-gradient-to-br ${currentTeam.colors} p-8 sm:p-10`}><p className="text-xs font-bold uppercase tracking-[.25em] text-foreground/70">El dado eligió</p><div className="mt-3 flex items-end justify-between gap-4"><h2 className="display-type text-5xl tracking-wide sm:text-7xl">{currentTeam.name}</h2><span className="rounded-full border border-foreground/20 px-4 py-2 text-xs font-extrabold">{currentTeam.short}</span></div></div>
-                  <div className="p-6 sm:p-8"><p className="mb-5 text-sm font-bold">Elegí una leyenda para <span className="text-primary">{positions[picks.length]}</span></p><div className="grid gap-3 sm:grid-cols-2">{currentTeam.players.map((player) => { const used = picks.some((pick) => pick.player === player); return <Button key={player} variant="stadium" size="lg" disabled={used} onClick={() => choose(player)} className="h-auto justify-between py-4 text-left"><span>{player}{used && <small className="ml-2 text-muted-foreground">Ya elegido</small>}</span><ChevronRight /></Button>; })}</div><Button variant="ghost" onClick={roll} className="mt-5 w-full text-muted-foreground"><Dice5/> Tirar otro club</Button></div>
-                </div>
-              )}
-            </div>
-          </section>
-        ) : (
-          <section className="animate-rise py-10 text-center">
-            <p className="text-xs font-extrabold uppercase tracking-[.28em] text-primary">La formación está completa</p><h1 className="display-type mt-2 text-6xl tracking-wide sm:text-8xl">Once para la eternidad</h1>
-            <div ref={resultRef} className="relative mx-auto mt-8 aspect-[4/5] max-w-2xl overflow-hidden rounded-[2rem] border-2 border-pitch-line bg-pitch shadow-2xl">
-              <div className="absolute inset-6 border-2 border-pitch-line"><div className="absolute left-0 right-0 top-1/2 border-t-2 border-pitch-line"/><div className="absolute left-1/2 top-1/2 aspect-square w-32 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-pitch-line"/><div className="absolute left-1/2 top-0 h-24 w-52 -translate-x-1/2 border-x-2 border-b-2 border-pitch-line"/><div className="absolute bottom-0 left-1/2 h-24 w-52 -translate-x-1/2 border-x-2 border-t-2 border-pitch-line"/></div>
-              {picks.map((pick, index) => <div key={pick.player} className={`absolute ${fieldSpots[index]} z-10 w-28 -translate-x-1/2 -translate-y-1/2 text-center sm:w-36`}><div className="mx-auto grid size-12 place-items-center rounded-full border-2 border-primary bg-foreground text-xs font-black text-background shadow-lg sm:size-14">{pick.short}</div><p className="mt-1 rounded bg-background/75 px-1 py-1 text-[10px] font-extrabold leading-tight backdrop-blur sm:text-xs">{pick.player}</p></div>)}
-            </div>
-            <div className="mt-8 flex flex-wrap justify-center gap-3"><Button variant="legend" size="lg" onClick={download}><Download/> Descargar imagen</Button><Button variant="stadium" size="lg" onClick={() => navigator.share?.({ title: "Mi once de leyendas", text: "Armé mi once ideal en El Dado de las Leyendas", url: window.location.href })}><Share2/> Compartir</Button><Button variant="ghost" size="lg" onClick={reset}><RotateCcw/> Jugar de nuevo</Button></div>
-          </section>
-        )}
+        <section className="order-1 lg:order-2">
+          <div className="mb-4 flex items-end justify-between"><div><p className="eyebrow">Tu selección · 4—3—3</p><h1 className="display-type text-4xl tracking-wide sm:text-5xl">EL ONCE DE LA HISTORIA</h1></div><div className="rounded-2xl border border-primary/30 bg-primary/10 px-4 py-2 text-center"><p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">Media</p><b className="display-type text-3xl text-primary">{overall || "—"}</b></div></div>
+          <div className="pitch relative mx-auto aspect-[4/5] w-full max-w-[650px] overflow-hidden rounded-[2rem] border border-pitch-line/30 bg-pitch shadow-2xl">
+            <div className="absolute inset-5 rounded-2xl border-2 border-pitch-line/70"><div className="absolute inset-x-0 top-1/2 border-t-2 border-pitch-line/70"/><div className="absolute left-1/2 top-1/2 size-28 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-pitch-line/70"/><div className="absolute left-1/2 top-0 h-20 w-48 -translate-x-1/2 border-x-2 border-b-2 border-pitch-line/70"/><div className="absolute bottom-0 left-1/2 h-20 w-48 -translate-x-1/2 border-x-2 border-t-2 border-pitch-line/70"/></div>
+            {positions.map((position, index) => { const pick = picks[index]; const selectable = phase === "upgrade"; return <button key={`${position}-${index}`} disabled={!selectable} onClick={() => { setReplaceIndex(index); roll(); }} className={`absolute ${fieldSpots[index]} z-10 w-[88px] -translate-x-1/2 -translate-y-1/2 text-center sm:w-28 ${selectable ? "cursor-pointer" : "cursor-default"}`}><div className={`player-token mx-auto grid size-11 place-items-center rounded-full border-2 text-[10px] font-black shadow-xl sm:size-14 ${pick ? "border-primary bg-foreground text-background" : "border-pitch-line/60 bg-background/25 text-pitch-line"}`}>{pick?.rating ?? position}</div><p className="mt-1 truncate rounded-md bg-background/85 px-1 py-1 text-[9px] font-extrabold backdrop-blur sm:text-[11px]">{pick?.name ?? "VACANTE"}</p>{pick && <p className="text-[8px] font-bold text-pitch-line">{pick.abbr} · {pick.year}</p>}</button>; })}
+          </div>
+          {phase === "upgrade" && <p className="mt-3 text-center text-xs font-bold text-secondary"><Sparkles className="mr-1 inline size-4"/>Elegí un jugador de la cancha para reemplazarlo</p>}
+        </section>
+
+        <aside className="order-3">
+          {(phase === "build" || phase === "upgrade") && <DrawPanel drawn={drawn} rolling={rolling} picks={picks} position={replaceIndex === null ? positions[picks.length] : positions[replaceIndex]} onRoll={roll} onChoose={choose} />}
+          {phase === "ready" && <MatchPanel round={rounds[round]} overall={overall} onPlay={simulate} />}
+          {phase === "result" && lastMatch && <ResultPanel match={lastMatch} onContinue={continueRound} />}
+          {(phase === "lost" || phase === "champion") && lastMatch && <EndPanel champion={phase === "champion"} match={lastMatch} overall={overall} onReset={reset} onShare={share} />}
+          <section className="mt-4 rounded-3xl border border-border bg-card/70 p-4"><div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest"><span className="text-muted-foreground">Plantel</span><span>{picks.length}/11</span></div><div className="mt-3 h-2 overflow-hidden rounded-full bg-muted"><div className="h-full bg-secondary transition-all" style={{ width: `${picks.length / 11 * 100}%` }}/></div><p className="mt-3 flex items-center gap-2 text-[10px] text-muted-foreground"><Check className="size-3 text-primary"/>Partida guardada automáticamente</p></section>
+        </aside>
       </div>
     </main>
   );
 }
+
+function DrawPanel({ drawn, rolling, picks, position, onRoll, onChoose }: { drawn: HistoricTeam | null; rolling: boolean; picks: Pick[]; position: string; onRoll: () => void; onChoose: (name: string, rating: number) => void }) {
+  if (!drawn) return <section className="rounded-3xl border border-border bg-card p-6 text-center"><p className="eyebrow">Destino retro</p><h2 className="display-type mt-2 text-4xl tracking-wide">SORTEÁ TU CLUB</h2><p className="mt-2 text-sm text-muted-foreground">Buscamos una versión histórica para tu <b className="text-foreground">{position}</b>.</p><button onClick={onRoll} disabled={rolling} aria-label="Lanzar dado" className="mx-auto mt-8 grid size-36 cursor-pointer place-items-center rounded-[2rem] border border-secondary/40 bg-secondary/10 shadow-[var(--shadow-blue)] transition-transform hover:-translate-y-1 disabled:pointer-events-none"><Dice5 className={`size-20 text-secondary ${rolling ? "animate-dice" : ""}`}/></button><Button variant="legend" size="xl" className="mt-7 w-full" onClick={onRoll} disabled={rolling}>{rolling ? "Girando la historia…" : "Lanzar el dado"}</Button><p className="mt-4 text-[9px] font-bold uppercase tracking-[.2em] text-muted-foreground">32 equipos · épocas irrepetibles</p></section>;
+  return <section className="animate-rise overflow-hidden rounded-3xl border border-border bg-card"><div className="relative bg-secondary/10 p-5"><p className="eyebrow">El dado eligió</p><div className="mt-3 flex items-center gap-4"><Crest team={drawn} large/><div><h2 className="display-type text-4xl leading-none tracking-wide">{drawn.club}</h2><p className="mt-1 text-2xl font-black text-secondary">{drawn.year}</p></div></div></div><div className="p-5"><div className="mb-3 flex items-center justify-between"><p className="text-xs font-black uppercase tracking-wider">Elegí para {position}</p><span className="text-xs text-muted-foreground">OVR</span></div><div className="space-y-2">{drawn.players.map(([name, rating]) => { const used = picks.some((pick) => pick.name === name); return <Button key={name} variant="stadium" disabled={used} onClick={() => onChoose(name, rating)} className="h-auto w-full justify-between rounded-xl px-4 py-3"><span className="text-left text-xs font-bold">{name}{used && <small className="block text-[9px] text-muted-foreground">Ya seleccionado</small>}</span><span className="flex items-center gap-2 font-black text-primary">{rating}<ChevronRight className="size-3"/></span></Button>; })}</div><Button variant="ghost" className="mt-3 w-full text-muted-foreground" onClick={onRoll}><Dice5/>Sortear otro</Button></div></section>;
+}
+
+function MatchPanel({ round, overall, onPlay }: { round: string; overall: number; onPlay: () => void }) { return <section className="rounded-3xl border border-secondary/30 bg-card p-6 text-center"><Swords className="mx-auto size-12 text-secondary"/><p className="eyebrow mt-4">Equipo completo</p><h2 className="display-type mt-1 text-5xl tracking-wide">{round}</h2><p className="mt-3 text-sm leading-relaxed text-muted-foreground">Tu XI está listo. El rival y el resultado se revelarán al iniciar el partido.</p><div className="my-6 flex items-center justify-center gap-5"><div><p className="display-type text-5xl text-primary">{overall}</p><small>Tu media</small></div><span className="text-muted-foreground">VS</span><div><p className="display-type text-5xl">?</p><small>Rival</small></div></div><Button variant="legend" size="xl" className="w-full" onClick={onPlay}>Jugar partido <ChevronRight/></Button></section>; }
+
+function ResultPanel({ match, onContinue }: { match: Match; onContinue: (change: boolean) => void }) { return <section className="animate-rise rounded-3xl border border-primary/30 bg-card p-6"><p className="eyebrow text-center">Resultado final · {match.round}</p><div className="my-5 flex items-center justify-center gap-5"><div className="text-center"><b className="display-type text-5xl">XI</b><p className="text-xs">ARGENRETRO</p></div><b className="display-type text-6xl text-primary">{match.userGoals} — {match.rivalGoals}</b><div className="max-w-24 text-center"><b className="text-sm">{match.rival}</b><p className="text-xs">OVR {match.rivalRating}</p></div></div><div className="grid grid-cols-2 gap-2 text-center"><div className="rounded-xl bg-muted p-3"><b>{match.possession}%</b><p className="text-[9px] uppercase text-muted-foreground">Posesión</p></div><div className="rounded-xl bg-muted p-3"><b>{match.shots}</b><p className="text-[9px] uppercase text-muted-foreground">Remates</p></div></div>{match.scorers.length > 0 && <p className="mt-4 text-xs"><b>Goles:</b> {match.scorers.join(", ")}</p>}<div className="mt-6 grid gap-2"><Button variant="legend" onClick={() => onContinue(true)}><Sparkles/>Cambiar 1 jugador</Button><Button variant="stadium" onClick={() => onContinue(false)}>Seguir con este XI <ChevronRight/></Button></div></section>; }
+
+function EndPanel({ champion, match, overall, onReset, onShare }: { champion: boolean; match: Match; overall: number; onReset: () => void; onShare: () => void }) { return <section className={`animate-rise rounded-3xl border p-6 text-center ${champion ? "border-primary bg-primary/10" : "border-destructive/40 bg-card"}`}><Trophy className={`mx-auto size-16 ${champion ? "text-primary" : "text-muted-foreground"}`}/><p className="eyebrow mt-4">{champion ? "Gloria eterna" : "Fin del camino"}</p><h2 className="display-type mt-1 text-5xl tracking-wide">{champion ? "¡CAMPEÓN!" : "ELIMINADO"}</h2><p className="mt-3 text-sm text-muted-foreground">{champion ? `Conquistaste el torneo con un XI de ${overall} puntos.` : `Caíste ${match.userGoals}—${match.rivalGoals} ante ${match.rival}.`}</p><div className="mt-6 grid gap-2"><Button variant="legend" onClick={onShare}><Share2/>Compartir resultado</Button><Button variant="stadium" onClick={onReset}><RotateCcw/>Jugar de nuevo</Button></div></section>; }
