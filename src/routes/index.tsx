@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronRight, Dice5, RotateCcw, Share2, Shield, Sparkles, Swords, Trophy } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, ChevronRight, CircleDot, Dice5, Radio, RotateCcw, Share2, Shield, Sparkles, Swords, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import teamsData from "@/data/historic-teams.json";
 
@@ -17,8 +17,10 @@ export const Route = createFileRoute("/")({
 type HistoricTeam = { id: string; club: string; year: number; abbr: string; rating: number; players: [string, number][] };
 type Pick = { name: string; rating: number; teamId: string; club: string; year: number; abbr: string; position: string };
 type Match = { round: string; rival: string; rivalRating: number; userGoals: number; rivalGoals: number; scorers: string[]; possession: number; shots: number; won: boolean };
+type LiveEvent = { minute: number; text: string; side: "user" | "rival" | "neutral"; goal?: boolean };
+type LiveMatch = { match: Match; events: LiveEvent[] };
 type SavedGame = { picks: Pick[]; round: number; matches: Match[]; phase: Phase };
-type Phase = "build" | "ready" | "result" | "upgrade" | "lost" | "champion";
+type Phase = "build" | "ready" | "live" | "result" | "upgrade" | "lost" | "champion";
 
 const teams = teamsData as HistoricTeam[];
 const rounds = ["Octavos", "Cuartos", "Semifinal", "Final"];
@@ -46,11 +48,14 @@ function Index() {
   const [replaceIndex, setReplaceIndex] = useState<number | null>(null);
   const [ranking, setRanking] = useState<number[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [liveMinute, setLiveMinute] = useState(0);
+  const [liveMatch, setLiveMatch] = useState<LiveMatch | null>(null);
+  const liveStartedAt = useRef(0);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(SAVE_KEY);
     const scores = window.localStorage.getItem(RANK_KEY);
-    if (saved) { try { const game = JSON.parse(saved) as SavedGame; setPicks(game.picks); setRound(game.round); setMatches(game.matches); setPhase(game.phase); } catch { window.localStorage.removeItem(SAVE_KEY); } }
+    if (saved) { try { const game = JSON.parse(saved) as SavedGame; setPicks(game.picks); setRound(game.round); setMatches(game.matches); setPhase(game.phase === "live" ? "ready" : game.phase); } catch { window.localStorage.removeItem(SAVE_KEY); } }
     if (scores) { try { setRanking(JSON.parse(scores) as number[]); } catch { window.localStorage.removeItem(RANK_KEY); } }
     setLoaded(true);
   }, []);
@@ -59,6 +64,22 @@ function Index() {
     if (!loaded) return;
     window.localStorage.setItem(SAVE_KEY, JSON.stringify({ picks, round, matches, phase } satisfies SavedGame));
   }, [loaded, matches, phase, picks, round]);
+
+  useEffect(() => {
+    if (phase !== "live" || !liveMatch) return;
+    liveStartedAt.current = Date.now();
+    const timer = window.setInterval(() => {
+      const minute = Math.min(90, Math.floor((Date.now() - liveStartedAt.current) / 20000 * 90));
+      setLiveMinute(minute);
+      if (minute < 90) return;
+      window.clearInterval(timer);
+      setMatches((value) => [...value, liveMatch.match]);
+      if (!liveMatch.match.won) { setPhase("lost"); saveRanking(overall); }
+      else if (round === 3) { setPhase("champion"); saveRanking(overall); }
+      else setPhase("result");
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [phase, liveMatch]);
 
   const overall = picks.length ? Math.round(picks.reduce((sum, pick) => sum + pick.rating, 0) / picks.length) : 0;
   const usedPlayers = picks.map((pick) => pick.name);
@@ -91,10 +112,23 @@ function Index() {
     const won = userGoals > rivalGoals;
     const scorers = Array.from({ length: userGoals }, (_, index) => picks[(index * 3 + Math.floor(Math.random() * picks.length)) % picks.length]?.name ?? "Gol en contra");
     const match: Match = { round: rounds[round], rival: `${rival.club} ${rival.year}`, rivalRating: rival.rating, userGoals, rivalGoals, scorers, possession: Math.max(38, Math.min(64, 51 + edge + Math.floor(Math.random() * 7) - 3)), shots: 7 + userGoals * 2 + Math.floor(Math.random() * 6), won };
-    setMatches((value) => [...value, match]);
-    if (!won) { setPhase("lost"); saveRanking(overall); }
-    else if (round === 3) { setPhase("champion"); saveRanking(overall); }
-    else setPhase("result");
+    const goalMinutes = Array.from({ length: userGoals + rivalGoals }, (_, index) => 8 + Math.floor((index + 1) * 78 / (userGoals + rivalGoals + 1)) + Math.floor(Math.random() * 7) - 3).sort((a, b) => a - b);
+    const events: LiveEvent[] = [
+      { minute: 1, text: "¡Rueda la pelota! Comienza el partido.", side: "neutral" },
+      { minute: 12, text: `${rival.club} avisa con un remate desde afuera.`, side: "rival" },
+      { minute: 29, text: `${picks[6]?.name ?? "El mediocampo"} maneja los tiempos del XI.`, side: "user" },
+      { minute: 45, text: "Final del primer tiempo.", side: "neutral" },
+      { minute: 57, text: `Gran atajada para sostener el resultado.`, side: "neutral" },
+      { minute: 72, text: "El partido entra en su tramo decisivo.", side: "neutral" },
+      { minute: 90, text: "¡Final del partido!", side: "neutral" },
+    ];
+    let userIndex = 0; let rivalIndex = 0;
+    goalMinutes.forEach((minute, index) => {
+      const userGoal = index < userGoals;
+      const scorer = userGoal ? scorers[userIndex++] : rival.players[rivalIndex++ % rival.players.length]?.[0] ?? rival.club;
+      events.push({ minute, text: `¡GOL de ${scorer}!`, side: userGoal ? "user" : "rival", goal: true });
+    });
+    setLiveMinute(0); setLiveMatch({ match, events: events.sort((a, b) => a.minute - b.minute) }); setPhase("live");
   };
 
   const saveRanking = (score: number) => {
@@ -135,6 +169,7 @@ function Index() {
         <aside className="order-3">
           {(phase === "build" || phase === "upgrade") && <DrawPanel drawn={drawn} rolling={rolling} picks={picks} position={replaceIndex === null ? positions[picks.length] : positions[replaceIndex]} onRoll={roll} onChoose={choose} />}
           {phase === "ready" && <MatchPanel round={rounds[round]} overall={overall} onPlay={simulate} />}
+          {phase === "live" && liveMatch && <LiveMatchPanel live={liveMatch} minute={liveMinute} />}
           {phase === "result" && lastMatch && <ResultPanel match={lastMatch} onContinue={continueRound} />}
           {(phase === "lost" || phase === "champion") && lastMatch && <EndPanel champion={phase === "champion"} match={lastMatch} overall={overall} onReset={reset} onShare={share} />}
           <section className="mt-4 rounded-3xl border border-border bg-card/70 p-4"><div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest"><span className="text-muted-foreground">Plantel</span><span>{picks.length}/11</span></div><div className="mt-3 h-2 overflow-hidden rounded-full bg-muted"><div className="h-full bg-secondary transition-all" style={{ width: `${picks.length / 11 * 100}%` }}/></div><p className="mt-3 flex items-center gap-2 text-[10px] text-muted-foreground"><Check className="size-3 text-primary"/>Partida guardada automáticamente</p></section>
@@ -150,6 +185,31 @@ function DrawPanel({ drawn, rolling, picks, position, onRoll, onChoose }: { draw
 }
 
 function MatchPanel({ round, overall, onPlay }: { round: string; overall: number; onPlay: () => void }) { return <section className="rounded-3xl border border-secondary/30 bg-card p-6 text-center"><Swords className="mx-auto size-12 text-secondary"/><p className="eyebrow mt-4">Equipo completo</p><h2 className="display-type mt-1 text-5xl tracking-wide">{round}</h2><p className="mt-3 text-sm leading-relaxed text-muted-foreground">Tu XI está listo. El rival y el resultado se revelarán al iniciar el partido.</p><div className="my-6 flex items-center justify-center gap-5"><div><p className="display-type text-5xl text-primary">{overall}</p><small>Tu media</small></div><span className="text-muted-foreground">VS</span><div><p className="display-type text-5xl">?</p><small>Rival</small></div></div><Button variant="legend" size="xl" className="w-full" onClick={onPlay}>Jugar partido <ChevronRight/></Button></section>; }
+
+function LiveMatchPanel({ live, minute }: { live: LiveMatch; minute: number }) {
+  const visible = live.events.filter((event) => event.minute <= minute);
+  const userGoals = visible.filter((event) => event.goal && event.side === "user").length;
+  const rivalGoals = visible.filter((event) => event.goal && event.side === "rival").length;
+  const current = visible[visible.length - 1];
+  return <section className="animate-rise overflow-hidden rounded-3xl border border-secondary/40 bg-card">
+    <div className="bg-secondary/10 p-5 text-center">
+      <div className="flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[.2em] text-secondary"><Radio className="size-3 animate-pulse"/> En vivo · {live.match.round}</div>
+      <div className="mt-4 flex items-center justify-center gap-4"><div className="w-24"><b className="display-type text-3xl">ARG XI</b></div><b className="display-type text-6xl text-primary">{userGoals} — {rivalGoals}</b><div className="w-24 text-xs font-extrabold">{live.match.rival}</div></div>
+      <div className="mt-3 inline-flex items-center rounded-full bg-background px-4 py-1 font-black text-secondary">{minute}'</div>
+      <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full bg-secondary transition-[width] duration-100" style={{ width: `${minute / 90 * 100}%` }}/></div>
+    </div>
+    <div className="p-5">
+      <div className={`min-h-24 rounded-2xl border p-4 text-center ${current?.goal ? "animate-goal border-primary bg-primary/10" : "border-border bg-muted/50"}`}>
+        {current?.goal ? <CircleDot className="mx-auto mb-2 size-7 text-primary"/> : <Swords className="mx-auto mb-2 size-6 text-muted-foreground"/>}
+        <p className="text-xs font-black uppercase tracking-wide">{current?.text ?? "Los equipos salen a la cancha…"}</p>
+      </div>
+      <div className="mt-4 max-h-52 space-y-2 overflow-y-auto pr-1">
+        {[...visible].reverse().map((event, index) => <div key={`${event.minute}-${event.text}`} className={`flex gap-3 rounded-xl px-3 py-2 text-xs ${index === 0 ? "bg-secondary/10" : "bg-muted/40"}`}><b className={event.goal ? "text-primary" : "text-secondary"}>{event.minute}'</b><span className={event.goal ? "font-extrabold" : "text-muted-foreground"}>{event.text}</span></div>)}
+      </div>
+      <p className="mt-4 text-center text-[9px] font-bold uppercase tracking-[.18em] text-muted-foreground">90 minutos resumidos en 20 segundos</p>
+    </div>
+  </section>;
+}
 
 function ResultPanel({ match, onContinue }: { match: Match; onContinue: (change: boolean) => void }) { return <section className="animate-rise rounded-3xl border border-primary/30 bg-card p-6"><p className="eyebrow text-center">Resultado final · {match.round}</p><div className="my-5 flex items-center justify-center gap-5"><div className="text-center"><b className="display-type text-5xl">XI</b><p className="text-xs">ARGENRETRO</p></div><b className="display-type text-6xl text-primary">{match.userGoals} — {match.rivalGoals}</b><div className="max-w-24 text-center"><b className="text-sm">{match.rival}</b><p className="text-xs">OVR {match.rivalRating}</p></div></div><div className="grid grid-cols-2 gap-2 text-center"><div className="rounded-xl bg-muted p-3"><b>{match.possession}%</b><p className="text-[9px] uppercase text-muted-foreground">Posesión</p></div><div className="rounded-xl bg-muted p-3"><b>{match.shots}</b><p className="text-[9px] uppercase text-muted-foreground">Remates</p></div></div>{match.scorers.length > 0 && <p className="mt-4 text-xs"><b>Goles:</b> {match.scorers.join(", ")}</p>}<div className="mt-6 grid gap-2"><Button variant="legend" onClick={() => onContinue(true)}><Sparkles/>Cambiar 1 jugador</Button><Button variant="stadium" onClick={() => onContinue(false)}>Seguir con este XI <ChevronRight/></Button></div></section>; }
 

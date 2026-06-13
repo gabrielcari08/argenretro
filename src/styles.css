@@ -168,8 +168,14 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes goal-flash {
+  0%, 100% { transform: scale(1); box-shadow: none; }
+  35% { transform: scale(1.025); box-shadow: var(--shadow-gold); }
+}
+
 .animate-dice { animation: dice-roll 700ms cubic-bezier(.2,.8,.2,1); }
 .animate-rise { animation: rise-in 500ms ease-out both; }
+.animate-goal { animation: goal-flash 700ms ease-out; }
 .display-type { font-family: var(--font-display); }
 .eyebrow { font-size: 0.625rem; font-weight: 900; letter-spacing: .22em; text-transform: uppercase; color: var(--color-secondary); }
 .crest { clip-path: polygon(50% 0, 92% 14%, 85% 72%, 50% 100%, 15% 72%, 8% 14%); }
