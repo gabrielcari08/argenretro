@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronRight, Dice5, RotateCcw, Share2, Shield, Sparkles, Swords, Trophy } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, ChevronRight, CircleDot, Dice5, Radio, RotateCcw, Share2, Shield, Sparkles, Swords, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import teamsData from "@/data/historic-teams.json";
 
@@ -17,8 +17,10 @@ export const Route = createFileRoute("/")({
 type HistoricTeam = { id: string; club: string; year: number; abbr: string; rating: number; players: [string, number][] };
 type Pick = { name: string; rating: number; teamId: string; club: string; year: number; abbr: string; position: string };
 type Match = { round: string; rival: string; rivalRating: number; userGoals: number; rivalGoals: number; scorers: string[]; possession: number; shots: number; won: boolean };
+type LiveEvent = { minute: number; text: string; side: "user" | "rival" | "neutral"; goal?: boolean };
+type LiveMatch = { match: Match; events: LiveEvent[] };
 type SavedGame = { picks: Pick[]; round: number; matches: Match[]; phase: Phase };
-type Phase = "build" | "ready" | "result" | "upgrade" | "lost" | "champion";
+type Phase = "build" | "ready" | "live" | "result" | "upgrade" | "lost" | "champion";
 
 const teams = teamsData as HistoricTeam[];
 const rounds = ["Octavos", "Cuartos", "Semifinal", "Final"];
@@ -46,11 +48,14 @@ function Index() {
   const [replaceIndex, setReplaceIndex] = useState<number | null>(null);
   const [ranking, setRanking] = useState<number[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [liveMinute, setLiveMinute] = useState(0);
+  const [liveMatch, setLiveMatch] = useState<LiveMatch | null>(null);
+  const liveStartedAt = useRef(0);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(SAVE_KEY);
     const scores = window.localStorage.getItem(RANK_KEY);
-    if (saved) { try { const game = JSON.parse(saved) as SavedGame; setPicks(game.picks); setRound(game.round); setMatches(game.matches); setPhase(game.phase); } catch { window.localStorage.removeItem(SAVE_KEY); } }
+    if (saved) { try { const game = JSON.parse(saved) as SavedGame; setPicks(game.picks); setRound(game.round); setMatches(game.matches); setPhase(game.phase === "live" ? "ready" : game.phase); } catch { window.localStorage.removeItem(SAVE_KEY); } }
     if (scores) { try { setRanking(JSON.parse(scores) as number[]); } catch { window.localStorage.removeItem(RANK_KEY); } }
     setLoaded(true);
   }, []);
@@ -59,6 +64,22 @@ function Index() {
     if (!loaded) return;
     window.localStorage.setItem(SAVE_KEY, JSON.stringify({ picks, round, matches, phase } satisfies SavedGame));
   }, [loaded, matches, phase, picks, round]);
+
+  useEffect(() => {
+    if (phase !== "live" || !liveMatch) return;
+    liveStartedAt.current = Date.now();
+    const timer = window.setInterval(() => {
+      const minute = Math.min(90, Math.floor((Date.now() - liveStartedAt.current) / 20000 * 90));
+      setLiveMinute(minute);
+      if (minute < 90) return;
+      window.clearInterval(timer);
+      setMatches((value) => [...value, liveMatch.match]);
+      if (!liveMatch.match.won) { setPhase("lost"); saveRanking(overall); }
+      else if (round === 3) { setPhase("champion"); saveRanking(overall); }
+      else setPhase("result");
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [phase, liveMatch]);
 
   const overall = picks.length ? Math.round(picks.reduce((sum, pick) => sum + pick.rating, 0) / picks.length) : 0;
   const usedPlayers = picks.map((pick) => pick.name);
@@ -91,10 +112,23 @@ function Index() {
     const won = userGoals > rivalGoals;
     const scorers = Array.from({ length: userGoals }, (_, index) => picks[(index * 3 + Math.floor(Math.random() * picks.length)) % picks.length]?.name ?? "Gol en contra");
     const match: Match = { round: rounds[round], rival: `${rival.club} ${rival.year}`, rivalRating: rival.rating, userGoals, rivalGoals, scorers, possession: Math.max(38, Math.min(64, 51 + edge + Math.floor(Math.random() * 7) - 3)), shots: 7 + userGoals * 2 + Math.floor(Math.random() * 6), won };
-    setMatches((value) => [...value, match]);
-    if (!won) { setPhase("lost"); saveRanking(overall); }
-    else if (round === 3) { setPhase("champion"); saveRanking(overall); }
-    else setPhase("result");
+    const goalMinutes = Array.from({ length: userGoals + rivalGoals }, (_, index) => 8 + Math.floor((index + 1) * 78 / (userGoals + rivalGoals + 1)) + Math.floor(Math.random() * 7) - 3).sort((a, b) => a - b);
+    const events: LiveEvent[] = [
+      { minute: 1, text: "¡Rueda la pelota! Comienza el partido.", side: "neutral" },
+      { minute: 12, text: `${rival.club} avisa con un remate desde afuera.`, side: "rival" },
+      { minute: 29, text: `${picks[6]?.name ?? "El mediocampo"} maneja los tiempos del XI.`, side: "user" },
+      { minute: 45, text: "Final del primer tiempo.", side: "neutral" },
+      { minute: 57, text: `Gran atajada para sostener el resultado.`, side: "neutral" },
+      { minute: 72, text: "El partido entra en su tramo decisivo.", side: "neutral" },
+      { minute: 90, text: "¡Final del partido!", side: "neutral" },
+    ];
+    let userIndex = 0; let rivalIndex = 0;
+    goalMinutes.forEach((minute, index) => {
+      const userGoal = index < userGoals;
+      const scorer = userGoal ? scorers[userIndex++] : rival.players[rivalIndex++ % rival.players.length]?.[0] ?? rival.club;
+      events.push({ minute, text: `¡GOL de ${scorer}!`, side: userGoal ? "user" : "rival", goal: true });
+    });
+    setLiveMinute(0); setLiveMatch({ match, events: events.sort((a, b) => a.minute - b.minute) }); setPhase("live");
   };
 
   const saveRanking = (score: number) => {
