@@ -54,6 +54,8 @@ function Index() {
   const [liveMinute, setLiveMinute] = useState(0);
   const [liveMatch, setLiveMatch] = useState<LiveMatch | null>(null);
   const [selectedSlot, setSelectedSlot] = useState(0);
+  const [username, setUsername] = useState("");
+  const [showIntro, setShowIntro] = useState(true);
   const liveStartedAt = useRef(0);
 
   useEffect(() => {
