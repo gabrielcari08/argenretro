@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronRight, CircleDot, Dice5, Radio, RotateCcw, Share2, Shield, Sparkles, Swords, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import teamsData from "@/data/historic-teams.json";
 
 export const Route = createFileRoute("/")({
@@ -15,7 +16,7 @@ export const Route = createFileRoute("/")({
 });
 
 type HistoricTeam = { id: string; club: string; year: number; abbr: string; rating: number; players: [string, number][] };
-type Pick = { name: string; rating: number; teamId: string; club: string; year: number; abbr: string; position: string };
+type Pick = { name: string; rating: number; teamId: string; club: string; year: number; abbr: string; position: string; slot: number };
 type Match = { round: string; rival: string; rivalRating: number; userGoals: number; rivalGoals: number; scorers: string[]; possession: number; shots: number; won: boolean };
 type LiveEvent = { minute: number; text: string; side: "user" | "rival" | "neutral"; goal?: boolean };
 type LiveMatch = { match: Match; events: LiveEvent[] };
@@ -25,7 +26,9 @@ type Phase = "build" | "ready" | "live" | "result" | "upgrade" | "lost" | "champ
 const teams = teamsData as HistoricTeam[];
 const rounds = ["Octavos", "Cuartos", "Semifinal", "Final"];
 const positions = ["ARQ", "LD", "DFC", "DFC", "LI", "MCD", "MC", "MC", "ED", "DC", "EI"];
+const positionLabels = ["Arquero", "Lateral derecho", "Central derecho", "Central izquierdo", "Lateral izquierdo", "Mediocentro defensivo", "Volante derecho", "Volante izquierdo", "Extremo derecho", "Delantero centro", "Extremo izquierdo"];
 const fieldSpots = ["top-[88%] left-1/2", "top-[69%] left-[82%]", "top-[74%] left-[61%]", "top-[74%] left-[39%]", "top-[69%] left-[18%]", "top-[54%] left-1/2", "top-[43%] left-[72%]", "top-[43%] left-[28%]", "top-[23%] left-[79%]", "top-[14%] left-1/2", "top-[23%] left-[21%]"];
+const goalkeeperNames = new Set(teams.map((team) => team.players[0]?.[0]).filter((name): name is string => Boolean(name)));
 const SAVE_KEY = "argenretro-xi-save";
 const RANK_KEY = "argenretro-xi-ranking";
 
@@ -50,12 +53,13 @@ function Index() {
   const [loaded, setLoaded] = useState(false);
   const [liveMinute, setLiveMinute] = useState(0);
   const [liveMatch, setLiveMatch] = useState<LiveMatch | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState(0);
   const liveStartedAt = useRef(0);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(SAVE_KEY);
     const scores = window.localStorage.getItem(RANK_KEY);
-    if (saved) { try { const game = JSON.parse(saved) as SavedGame; setPicks(game.picks); setRound(game.round); setMatches(game.matches); setPhase(game.phase === "live" ? "ready" : game.phase); } catch { window.localStorage.removeItem(SAVE_KEY); } }
+    if (saved) { try { const game = JSON.parse(saved) as SavedGame; setPicks(game.picks.map((pick, index) => ({ ...pick, slot: pick.slot ?? index }))); setRound(game.round); setMatches(game.matches); setPhase(game.phase === "live" ? "ready" : game.phase); } catch { window.localStorage.removeItem(SAVE_KEY); } }
     if (scores) { try { setRanking(JSON.parse(scores) as number[]); } catch { window.localStorage.removeItem(RANK_KEY); } }
     setLoaded(true);
   }, []);
@@ -84,6 +88,7 @@ function Index() {
   const overall = picks.length ? Math.round(picks.reduce((sum, pick) => sum + pick.rating, 0) / picks.length) : 0;
   const usedPlayers = picks.map((pick) => pick.name);
   const usedTeams = picks.map((pick) => pick.teamId);
+  const availableSlots = positions.map((position, slot) => ({ position, slot, label: positionLabels[slot] })).filter(({ slot }) => !picks.some((pick) => pick.slot === slot));
 
   const roll = () => {
     if (rolling) return;
@@ -93,12 +98,14 @@ function Index() {
 
   const choose = (name: string, rating: number) => {
     if (!drawn || usedPlayers.includes(name)) return;
-    const next: Pick = { name, rating, teamId: drawn.id, club: drawn.club, year: drawn.year, abbr: drawn.abbr, position: replaceIndex === null ? positions[picks.length] : positions[replaceIndex] };
+    const slot = replaceIndex ?? selectedSlot;
+    if (replaceIndex === null && !availableSlots.some((item) => item.slot === slot)) return;
+    const next: Pick = { name, rating, teamId: drawn.id, club: drawn.club, year: drawn.year, abbr: drawn.abbr, position: positions[slot], slot };
     if (replaceIndex !== null) {
       setPicks((current) => current.map((pick, index) => index === replaceIndex ? next : pick));
       setReplaceIndex(null); setDrawn(null); setPhase("ready"); return;
     }
-    setPicks((current) => { const value = [...current, next]; if (value.length === 11) setPhase("ready"); return value; });
+    setPicks((current) => { const value = [...current, next]; const nextSlot = positions.findIndex((_, index) => !value.some((pick) => pick.slot === index)); if (nextSlot >= 0) setSelectedSlot(nextSlot); if (value.length === 11) setPhase("ready"); return value; });
     setDrawn(null);
   };
 
@@ -110,7 +117,8 @@ function Index() {
     if (userGoals === rivalGoals) rivalGoals += Math.random() < 0.58 + edge / 100 ? -1 : 1;
     rivalGoals = Math.max(0, rivalGoals);
     const won = userGoals > rivalGoals;
-    const scorers = Array.from({ length: userGoals }, (_, index) => picks[(index * 3 + Math.floor(Math.random() * picks.length)) % picks.length]?.name ?? "Gol en contra");
+    const eligibleScorers = picks.filter((pick) => !goalkeeperNames.has(pick.name));
+    const scorers = Array.from({ length: userGoals }, (_, index) => eligibleScorers[(index * 3 + Math.floor(Math.random() * eligibleScorers.length)) % eligibleScorers.length]?.name ?? "Gol en contra");
     const match: Match = { round: rounds[round], rival: `${rival.club} ${rival.year}`, rivalRating: rival.rating, userGoals, rivalGoals, scorers, possession: Math.max(38, Math.min(64, 51 + edge + Math.floor(Math.random() * 7) - 3)), shots: 7 + userGoals * 2 + Math.floor(Math.random() * 6), won };
     const goalMinutes = Array.from({ length: userGoals + rivalGoals }, (_, index) => 8 + Math.floor((index + 1) * 78 / (userGoals + rivalGoals + 1)) + Math.floor(Math.random() * 7) - 3).sort((a, b) => a - b);
     const events: LiveEvent[] = [
@@ -125,7 +133,8 @@ function Index() {
     let userIndex = 0; let rivalIndex = 0;
     goalMinutes.forEach((minute, index) => {
       const userGoal = index < userGoals;
-      const scorer = userGoal ? scorers[userIndex++] : rival.players[rivalIndex++ % rival.players.length]?.[0] ?? rival.club;
+      const rivalScorers = rival.players.slice(1);
+      const scorer = userGoal ? scorers[userIndex++] : rivalScorers[rivalIndex++ % rivalScorers.length]?.[0] ?? rival.club;
       events.push({ minute, text: `¡GOL de ${scorer}!`, side: userGoal ? "user" : "rival", goal: true });
     });
     setLiveMinute(0); setLiveMatch({ match, events: events.sort((a, b) => a.minute - b.minute) }); setPhase("live");
@@ -137,7 +146,7 @@ function Index() {
   };
 
   const continueRound = (change: boolean) => { setRound((value) => value + 1); setPhase(change ? "upgrade" : "ready"); setDrawn(null); };
-  const reset = () => { setPicks([]); setRound(0); setMatches([]); setPhase("build"); setDrawn(null); setReplaceIndex(null); window.localStorage.removeItem(SAVE_KEY); };
+  const reset = () => { setPicks([]); setRound(0); setMatches([]); setPhase("build"); setDrawn(null); setReplaceIndex(null); setSelectedSlot(0); window.localStorage.removeItem(SAVE_KEY); };
   const share = async () => { const text = `Mi ARGENRETRO XI tiene ${overall} de valoración. ¿Podés superarlo?`; if (navigator.share) await navigator.share({ title: "ARGENRETRO XI", text, url: window.location.href }); else await navigator.clipboard.writeText(`${text} ${window.location.href}`); };
   const lastMatch = matches[matches.length - 1];
 
@@ -161,13 +170,13 @@ function Index() {
           <div className="mb-4 flex items-end justify-between"><div><p className="eyebrow">Tu selección · 4—3—3</p><h1 className="display-type text-4xl tracking-wide sm:text-5xl">EL ONCE DE LA HISTORIA</h1></div><div className="rounded-2xl border border-primary/30 bg-primary/10 px-4 py-2 text-center"><p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">Media</p><b className="display-type text-3xl text-primary">{overall || "—"}</b></div></div>
           <div className="pitch relative mx-auto aspect-[4/5] w-full max-w-[650px] overflow-hidden rounded-[2rem] border border-pitch-line/30 bg-pitch shadow-2xl">
             <div className="absolute inset-5 rounded-2xl border-2 border-pitch-line/70"><div className="absolute inset-x-0 top-1/2 border-t-2 border-pitch-line/70"/><div className="absolute left-1/2 top-1/2 size-28 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-pitch-line/70"/><div className="absolute left-1/2 top-0 h-20 w-48 -translate-x-1/2 border-x-2 border-b-2 border-pitch-line/70"/><div className="absolute bottom-0 left-1/2 h-20 w-48 -translate-x-1/2 border-x-2 border-t-2 border-pitch-line/70"/></div>
-            {positions.map((position, index) => { const pick = picks[index]; const selectable = phase === "upgrade"; return <button key={`${position}-${index}`} disabled={!selectable} onClick={() => { setReplaceIndex(index); roll(); }} className={`absolute ${fieldSpots[index]} z-10 w-[88px] -translate-x-1/2 -translate-y-1/2 text-center sm:w-28 ${selectable ? "cursor-pointer" : "cursor-default"}`}><div className={`player-token mx-auto grid size-11 place-items-center rounded-full border-2 text-[10px] font-black shadow-xl sm:size-14 ${pick ? "border-primary bg-foreground text-background" : "border-pitch-line/60 bg-background/25 text-pitch-line"}`}>{pick?.rating ?? position}</div><p className="mt-1 truncate rounded-md bg-background/85 px-1 py-1 text-[9px] font-extrabold backdrop-blur sm:text-[11px]">{pick?.name ?? "VACANTE"}</p>{pick && <p className="text-[8px] font-bold text-pitch-line">{pick.abbr} · {pick.year}</p>}</button>; })}
+            {positions.map((position, index) => { const pick = picks.find((item) => item.slot === index); const selectable = phase === "upgrade" && Boolean(pick); return <button key={`${position}-${index}`} disabled={!selectable} onClick={() => { setReplaceIndex(index); roll(); }} className={`absolute ${fieldSpots[index]} z-10 w-[88px] -translate-x-1/2 -translate-y-1/2 text-center sm:w-28 ${selectable ? "cursor-pointer" : "cursor-default"}`}><div className={`player-token mx-auto grid size-11 place-items-center rounded-full border-2 text-[10px] font-black shadow-xl sm:size-14 ${pick ? "border-primary bg-foreground text-background" : "border-pitch-line/60 bg-background/25 text-pitch-line"}`}>{pick?.rating ?? position}</div><p className="mt-1 truncate rounded-md bg-background/85 px-1 py-1 text-[9px] font-extrabold backdrop-blur sm:text-[11px]">{pick?.name ?? "VACANTE"}</p>{pick && <p className="text-[8px] font-bold text-pitch-line">{pick.abbr} · {pick.year}</p>}</button>; })}
           </div>
           {phase === "upgrade" && <p className="mt-3 text-center text-xs font-bold text-secondary"><Sparkles className="mr-1 inline size-4"/>Elegí un jugador de la cancha para reemplazarlo</p>}
         </section>
 
         <aside className="order-3">
-          {(phase === "build" || phase === "upgrade") && <DrawPanel drawn={drawn} rolling={rolling} picks={picks} position={replaceIndex === null ? positions[picks.length] : positions[replaceIndex]} onRoll={roll} onChoose={choose} />}
+          {(phase === "build" || phase === "upgrade") && <DrawPanel drawn={drawn} rolling={rolling} picks={picks} position={positions[replaceIndex ?? selectedSlot]} availableSlots={availableSlots} selectedSlot={replaceIndex ?? selectedSlot} onPositionChange={setSelectedSlot} positionLocked={replaceIndex !== null} onRoll={roll} onChoose={choose} />}
           {phase === "ready" && <MatchPanel round={rounds[round]} overall={overall} onPlay={simulate} />}
           {phase === "live" && liveMatch && <LiveMatchPanel live={liveMatch} minute={liveMinute} />}
           {phase === "result" && lastMatch && <ResultPanel match={lastMatch} onContinue={continueRound} />}
@@ -179,9 +188,10 @@ function Index() {
   );
 }
 
-function DrawPanel({ drawn, rolling, picks, position, onRoll, onChoose }: { drawn: HistoricTeam | null; rolling: boolean; picks: Pick[]; position: string; onRoll: () => void; onChoose: (name: string, rating: number) => void }) {
-  if (!drawn) return <section className="rounded-3xl border border-border bg-card p-6 text-center"><p className="eyebrow">Destino retro</p><h2 className="display-type mt-2 text-4xl tracking-wide">SORTEÁ TU CLUB</h2><p className="mt-2 text-sm text-muted-foreground">Buscamos una versión histórica para tu <b className="text-foreground">{position}</b>.</p><button onClick={onRoll} disabled={rolling} aria-label="Lanzar dado" className="mx-auto mt-8 grid size-36 cursor-pointer place-items-center rounded-[2rem] border border-secondary/40 bg-secondary/10 shadow-[var(--shadow-blue)] transition-transform hover:-translate-y-1 disabled:pointer-events-none"><Dice5 className={`size-20 text-secondary ${rolling ? "animate-dice" : ""}`}/></button><Button variant="legend" size="xl" className="mt-7 w-full" onClick={onRoll} disabled={rolling}>{rolling ? "Girando la historia…" : "Lanzar el dado"}</Button><p className="mt-4 text-[9px] font-bold uppercase tracking-[.2em] text-muted-foreground">32 equipos · épocas irrepetibles</p></section>;
-  return <section className="animate-rise overflow-hidden rounded-3xl border border-border bg-card"><div className="relative bg-secondary/10 p-5"><p className="eyebrow">El dado eligió</p><div className="mt-3 flex items-center gap-4"><Crest team={drawn} large/><div><h2 className="display-type text-4xl leading-none tracking-wide">{drawn.club}</h2><p className="mt-1 text-2xl font-black text-secondary">{drawn.year}</p></div></div></div><div className="p-5"><div className="mb-3 flex items-center justify-between"><p className="text-xs font-black uppercase tracking-wider">Elegí para {position}</p><span className="text-xs text-muted-foreground">OVR</span></div><div className="space-y-2">{drawn.players.map(([name, rating]) => { const used = picks.some((pick) => pick.name === name); return <Button key={name} variant="stadium" disabled={used} onClick={() => onChoose(name, rating)} className="h-auto w-full justify-between rounded-xl px-4 py-3"><span className="text-left text-xs font-bold">{name}{used && <small className="block text-[9px] text-muted-foreground">Ya seleccionado</small>}</span><span className="flex items-center gap-2 font-black text-primary">{rating}<ChevronRight className="size-3"/></span></Button>; })}</div><Button variant="ghost" className="mt-3 w-full text-muted-foreground" onClick={onRoll}><Dice5/>Sortear otro</Button></div></section>;
+function DrawPanel({ drawn, rolling, picks, position, availableSlots, selectedSlot, onPositionChange, positionLocked, onRoll, onChoose }: { drawn: HistoricTeam | null; rolling: boolean; picks: Pick[]; position: string; availableSlots: { position: string; slot: number; label: string }[]; selectedSlot: number; onPositionChange: (slot: number) => void; positionLocked: boolean; onRoll: () => void; onChoose: (name: string, rating: number) => void }) {
+  const positionSelector = <div className="mt-4 text-left"><label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-muted-foreground">Posición del jugador</label><Select value={String(selectedSlot)} onValueChange={(value) => onPositionChange(Number(value))} disabled={positionLocked}><SelectTrigger className="h-12 rounded-xl border-secondary/30 bg-background/60 font-bold"><SelectValue /></SelectTrigger><SelectContent>{availableSlots.map(({ position: code, slot, label }) => <SelectItem key={slot} value={String(slot)}>{code} · {label}</SelectItem>)}</SelectContent></Select>{positionLocked && <p className="mt-2 text-[10px] text-muted-foreground">La posición queda fijada durante un reemplazo.</p>}</div>;
+  if (!drawn) return <section className="rounded-3xl border border-border bg-card p-6 text-center"><p className="eyebrow">Destino retro</p><h2 className="display-type mt-2 text-4xl tracking-wide">SORTEÁ TU CLUB</h2><p className="mt-2 text-sm text-muted-foreground">Elegí el puesto y sorteá una versión histórica.</p>{positionSelector}<button onClick={onRoll} disabled={rolling} aria-label="Lanzar dado" className="mx-auto mt-6 grid size-36 cursor-pointer place-items-center rounded-[2rem] border border-secondary/40 bg-secondary/10 shadow-[var(--shadow-blue)] transition-transform hover:-translate-y-1 disabled:pointer-events-none"><Dice5 className={`size-20 text-secondary ${rolling ? "animate-dice" : ""}`}/></button><Button variant="legend" size="xl" className="mt-7 w-full" onClick={onRoll} disabled={rolling}>{rolling ? "Girando la historia…" : "Lanzar el dado"}</Button><p className="mt-4 text-[9px] font-bold uppercase tracking-[.2em] text-muted-foreground">32 equipos · épocas irrepetibles</p></section>;
+  return <section className="animate-rise overflow-hidden rounded-3xl border border-border bg-card"><div className="relative bg-secondary/10 p-5"><p className="eyebrow">El dado eligió</p><div className="mt-3 flex items-center gap-4"><Crest team={drawn} large/><div><h2 className="display-type text-4xl leading-none tracking-wide">{drawn.club}</h2><p className="mt-1 text-2xl font-black text-secondary">{drawn.year}</p></div></div></div><div className="p-5">{positionSelector}<div className="mb-3 mt-5 flex items-center justify-between"><p className="text-xs font-black uppercase tracking-wider">Elegí para {position}</p><span className="text-xs text-muted-foreground">OVR</span></div><div className="space-y-2">{drawn.players.map(([name, rating]) => { const used = picks.some((pick) => pick.name === name); return <Button key={name} variant="stadium" disabled={used} onClick={() => onChoose(name, rating)} className="h-auto w-full justify-between rounded-xl px-4 py-3"><span className="text-left text-xs font-bold">{name}{used && <small className="block text-[9px] text-muted-foreground">Ya seleccionado</small>}</span><span className="flex items-center gap-2 font-black text-primary">{rating}<ChevronRight className="size-3"/></span></Button>; })}</div><Button variant="ghost" className="mt-3 w-full text-muted-foreground" onClick={onRoll}><Dice5/>Sortear otro</Button></div></section>;
 }
 
 function MatchPanel({ round, overall, onPlay }: { round: string; overall: number; onPlay: () => void }) { return <section className="rounded-3xl border border-secondary/30 bg-card p-6 text-center"><Swords className="mx-auto size-12 text-secondary"/><p className="eyebrow mt-4">Equipo completo</p><h2 className="display-type mt-1 text-5xl tracking-wide">{round}</h2><p className="mt-3 text-sm leading-relaxed text-muted-foreground">Tu XI está listo. El rival y el resultado se revelarán al iniciar el partido.</p><div className="my-6 flex items-center justify-center gap-5"><div><p className="display-type text-5xl text-primary">{overall}</p><small>Tu media</small></div><span className="text-muted-foreground">VS</span><div><p className="display-type text-5xl">?</p><small>Rival</small></div></div><Button variant="legend" size="xl" className="w-full" onClick={onPlay}>Jugar partido <ChevronRight/></Button></section>; }
