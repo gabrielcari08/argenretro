@@ -65,7 +65,9 @@ function Index() {
   useEffect(() => {
     const saved = window.localStorage.getItem(SAVE_KEY);
     const scores = window.localStorage.getItem(RANK_KEY);
-    if (saved) { try { const game = JSON.parse(saved) as SavedGame; setPicks(game.picks.map((pick, index) => ({ ...pick, slot: pick.slot ?? index }))); setRound(game.round); setMatches(game.matches); setPhase(game.phase === "live" ? "ready" : game.phase); } catch { window.localStorage.removeItem(SAVE_KEY); } }
+    const user = window.localStorage.getItem(USER_KEY);
+    if (user) { setUsername(user); }
+    if (saved) { try { const game = JSON.parse(saved) as SavedGame; setPicks(game.picks.map((pick, index) => ({ ...pick, slot: pick.slot ?? index }))); setRound(game.round); setMatches(game.matches); setPhase(game.phase === "live" ? "ready" : game.phase); setShowIntro(false); } catch { window.localStorage.removeItem(SAVE_KEY); } }
     if (scores) { try { setRanking(JSON.parse(scores) as number[]); } catch { window.localStorage.removeItem(RANK_KEY); } }
     setLoaded(true);
   }, []);
