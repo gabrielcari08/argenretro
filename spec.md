@@ -2,9 +2,11 @@
 
 ## Tech Stack
 - Frontend: TanStack Start (React 19, TypeScript, Vite, Tailwind CSS v4)
-- Database: PostgreSQL via Supabase
-- ORM: Drizzle
+- Database: PostgreSQL via Supabase (remote, persistent)
+- ORM: Drizzle (schema management, migrations)
+- API layer: TanStack Start server functions (createServerFn)
 - Admin panel: built-in web routes
+- Data: manually curated (no scraping)
 
 ## Database Schema
 
