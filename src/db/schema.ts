@@ -3,6 +3,8 @@ import { pgTable, serial, varchar, integer } from "drizzle-orm/pg-core";
 export const VALID_POSITIONS = [
   "GOALKEEPER",
   "CENTRAL DEFENDER",
+  "LEFT BACK",
+  "RIGHT BACK",
   "DEFENSIVE MIDFIELDER",
   "CENTRAL MIDFIELDER",
   "OFFENSIVE MIDFIELDER",

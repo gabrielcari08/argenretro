@@ -33,6 +33,8 @@
 ### Valid positions (enum-like, stored as strings)
 - GOALKEEPER
 - CENTRAL DEFENDER
+- LEFT BACK
+- RIGHT BACK
 - DEFENSIVE MIDFIELDER
 - CENTRAL MIDFIELDER
 - OFFENSIVE MIDFIELDER
@@ -41,7 +43,7 @@
 - CENTRAL FORWARD
 
 ### Constraints
-- position_1 is REQUIRED (must be one of the 8 valid positions)
+- position_1 is REQUIRED (must be one of the 10 valid positions)
 - position_2 and position_3 are OPTIONAL
 - A position cannot repeat within the same player (no duplicate positions)
 - team_id references teams.id with ON DELETE CASCADE
@@ -61,12 +63,15 @@ The game uses 4-3-3 formation with these slots:
 11. LEFT WING (EI)
 
 Slot-to-position mapping:
-- Slot 0 → GOALKEEPER
-- Slots 1, 2, 3, 4 → CENTRAL DEFENDER (auto-assign)
-- Slot 5 → DEFENSIVE MIDFIELDER
+- Slot 0  → GOALKEEPER
+- Slot 1  → RIGHT BACK
+- Slot 2  → CENTRAL DEFENDER
+- Slot 3  → CENTRAL DEFENDER
+- Slot 4  → LEFT BACK
+- Slot 5  → DEFENSIVE MIDFIELDER
 - Slots 6, 7 → CENTRAL MIDFIELDER
-- Slot 8 → RIGHT WING
-- Slot 9 → CENTRAL FORWARD
+- Slot 8  → RIGHT WING
+- Slot 9  → CENTRAL FORWARD
 - Slot 10 → LEFT WING
 
 ## Project Structure (planned)

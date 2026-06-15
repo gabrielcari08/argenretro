@@ -8,6 +8,8 @@ import type { Player } from "@/types";
 const VALID_POSITIONS = [
   "GOALKEEPER",
   "CENTRAL DEFENDER",
+  "LEFT BACK",
+  "RIGHT BACK",
   "DEFENSIVE MIDFIELDER",
   "CENTRAL MIDFIELDER",
   "OFFENSIVE MIDFIELDER",

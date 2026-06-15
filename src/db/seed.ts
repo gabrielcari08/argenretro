@@ -6,6 +6,8 @@ type RawTeam = { id: string; club: string; year: number; abbr: string; rating: n
 const POSITIONS = [
   "GOALKEEPER",
   "CENTRAL DEFENDER",
+  "LEFT BACK",
+  "RIGHT BACK",
   "DEFENSIVE MIDFIELDER",
   "CENTRAL MIDFIELDER",
   "OFFENSIVE MIDFIELDER",
@@ -25,7 +27,7 @@ const positionsForIndex: (typeof POSITIONS[number])[] = [
 
 const altPositions: (typeof POSITIONS[number] | null)[] = [
   null,
-  "DEFENSIVE MIDFIELDER",
+  "RIGHT BACK",
   "DEFENSIVE MIDFIELDER",
   "CENTRAL MIDFIELDER",
   "LEFT WING",
