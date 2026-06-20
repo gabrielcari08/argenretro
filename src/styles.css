@@ -173,6 +173,14 @@
   35% { transform: scale(1.025); box-shadow: var(--shadow-gold); }
 }
 
+@keyframes position-pulse {
+  0%, 100% { box-shadow: 0 0 6px 2px color-mix(in oklab, var(--secondary) 60%, transparent); border-color: var(--secondary); transform: scale(1); }
+  50% { box-shadow: 0 0 18px 6px color-mix(in oklab, var(--secondary) 20%, transparent); border-color: color-mix(in oklab, var(--secondary) 90%, white); transform: scale(1.06); }
+}
+
+.animate-position-target { animation: position-pulse 1.2s ease-in-out infinite; }
+.animate-position-dim { opacity: 0.35; }
+
 .animate-dice { animation: dice-roll 700ms cubic-bezier(.2,.8,.2,1); }
 .animate-rise { animation: rise-in 500ms ease-out both; }
 .animate-goal { animation: goal-flash 700ms ease-out; }

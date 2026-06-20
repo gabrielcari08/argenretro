@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Sparkles, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import type { Match } from "@/types";
 
 export function ResultPanel({
@@ -16,7 +16,7 @@ export function ResultPanel({
           <b className="display-type text-5xl">XI</b>
           <p className="text-xs">ARGENRETRO</p>
         </div>
-        <b className="display-type text-6xl text-primary">
+        <b className="display-type text-5xl text-primary">
           {match.userGoals} — {match.rivalGoals}
         </b>
         <div className="max-w-24 text-center">
@@ -40,12 +40,8 @@ export function ResultPanel({
         </p>
       )}
       <div className="mt-6 grid gap-2">
-        <Button variant="legend" onClick={() => onContinue(true)}>
-          <Sparkles />
-          Cambiar 1 jugador
-        </Button>
-        <Button variant="stadium" onClick={() => onContinue(false)}>
-          Seguir con este XI <ChevronRight />
+        <Button variant="legend" onClick={() => onContinue(false)}>
+          Continuar <ChevronRight />
         </Button>
       </div>
     </section>

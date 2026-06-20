@@ -22,7 +22,7 @@ export function LiveMatchPanel({
           <div className="w-24">
             <b className="display-type text-3xl">ARG XI</b>
           </div>
-          <b className="display-type text-6xl text-primary">
+          <b className="display-type text-5xl text-primary">
             {userGoals} — {rivalGoals}
           </b>
           <div className="w-24 text-xs font-extrabold">{live.match.rival}</div>

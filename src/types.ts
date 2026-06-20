@@ -56,11 +56,23 @@ export type LiveMatch = {
   events: LiveEvent[];
 };
 
-export type Phase = "build" | "ready" | "live" | "result" | "upgrade" | "lost" | "champion";
+export type Phase = "build" | "positioning" | "ready" | "live" | "result" | "upgrade" | "lost" | "champion";
+
+export type PendingPlayer = {
+  name: string;
+  rating: number;
+  teamId: number;
+  club: string;
+  year: number;
+  abbr: string;
+  positions: ValidPosition[];
+};
 
 export type SavedGame = {
   picks: Pick[];
   round: number;
   matches: Match[];
   phase: Phase;
+  formationId: string;
+  pendingPlayer?: PendingPlayer | null;
 };

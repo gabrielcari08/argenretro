@@ -1,61 +1,44 @@
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dice5, ChevronRight } from "lucide-react";
-import type { HistoricTeam, Pick } from "@/types";
+import type { HistoricTeam, Pick, PendingPlayer, Phase, ValidPosition } from "@/types";
+import { getAvailablePositions, getCompatibleSlots } from "@/lib/positionUtils";
+
+const POSITION_SHORT: Record<ValidPosition, string> = {
+  GOALKEEPER: "ARQ",
+  "RIGHT BACK": "LD",
+  "CENTRAL DEFENDER": "DFC",
+  "LEFT BACK": "LI",
+  "DEFENSIVE MIDFIELDER": "MCD",
+  "CENTRAL MIDFIELDER": "MC",
+  "OFFENSIVE MIDFIELDER": "MCO",
+  "RIGHT WING": "ED",
+  "CENTRAL FORWARD": "DC",
+  "LEFT WING": "EI",
+};
 
 export function DrawPanel({
-  drawn, rolling, picks, position, availableSlots, selectedSlot,
-  onPositionChange, positionLocked, onRoll, onChoose,
+  drawn, rolling, picks, replaceIndex, availableSlots, slotPositionMap,
+  onRoll, onChoose, onSetPendingPlayer, onSetPhase,
 }: {
   drawn: HistoricTeam | null;
   rolling: boolean;
   picks: Pick[];
-  position: string;
+  replaceIndex: number | null;
   availableSlots: { position: string; slot: number; label: string }[];
-  selectedSlot: number;
-  onPositionChange: (slot: number) => void;
-  positionLocked: boolean;
+  slotPositionMap: Record<ValidPosition, number[]>;
   onRoll: () => void;
-  onChoose: (name: string, rating: number) => void;
+  onChoose: (name: string, rating: number, slotOverride?: number) => void;
+  onSetPendingPlayer: (player: PendingPlayer) => void;
+  onSetPhase: (phase: Phase) => void;
 }) {
-  const positionSelector = (
-    <div className="mt-4 text-left">
-      <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-        Posición del jugador
-      </label>
-      <Select
-        value={String(selectedSlot)}
-        onValueChange={(value) => onPositionChange(Number(value))}
-        disabled={positionLocked}
-      >
-        <SelectTrigger className="h-12 rounded-xl border-secondary/30 bg-background/60 font-bold">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {availableSlots.map(({ position: code, slot, label }) => (
-            <SelectItem key={slot} value={String(slot)}>
-              {code} · {label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      {positionLocked && (
-        <p className="mt-2 text-[10px] text-muted-foreground">
-          La posición queda fijada durante un reemplazo.
-        </p>
-      )}
-    </div>
-  );
-
   if (!drawn) {
     return (
       <section className="rounded-3xl border border-border bg-card p-6 text-center">
         <p className="eyebrow">Destino retro</p>
         <h2 className="display-type mt-2 text-4xl tracking-wide">SORTEÁ TU CLUB</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Elegí el puesto y sorteá una versión histórica.
+          Lanzá el dado y elegí un jugador.
         </p>
-        {positionSelector}
         <button
           onClick={onRoll}
           disabled={rolling}
@@ -74,6 +57,8 @@ export function DrawPanel({
     );
   }
 
+  const takenSlots = picks.map((p) => p.slot);
+
   return (
     <section className="animate-rise overflow-hidden rounded-3xl border border-border bg-card">
       <div className="relative bg-secondary/10 p-5">
@@ -87,25 +72,71 @@ export function DrawPanel({
         </div>
       </div>
       <div className="p-5">
-        {positionSelector}
-        <div className="mb-3 mt-5 flex items-center justify-between">
-          <p className="text-xs font-black uppercase tracking-wider">Elegí para {position}</p>
+        <div className="mb-3 mt-2 flex items-center justify-between">
+          <p className="text-xs font-black uppercase tracking-wider">Jugadores</p>
           <span className="text-xs text-muted-foreground">OVR</span>
         </div>
         <div className="space-y-2">
           {(drawn.players ?? []).map((player) => {
             const used = picks.some((pick) => pick.name === player.name);
+            const playerPositions = getAvailablePositions(player);
+            let compatibleSlots: number[];
+            let disabledReason = "";
+
+            if (replaceIndex !== null) {
+              compatibleSlots = getCompatibleSlots(playerPositions, [], slotPositionMap);
+              const fits = compatibleSlots.includes(replaceIndex);
+              if (!fits) disabledReason = "Posición no compatible";
+            } else {
+              compatibleSlots = getCompatibleSlots(playerPositions, takenSlots, slotPositionMap);
+              if (compatibleSlots.length === 0) disabledReason = "Sin posición disponible";
+            }
+
+            const disabled = used || disabledReason !== "";
+
             return (
               <Button
                 key={player.name}
                 variant="stadium"
-                disabled={used}
-                onClick={() => onChoose(player.name, player.rating)}
+                disabled={disabled}
+                onClick={() => {
+                  if (replaceIndex !== null) {
+                    onChoose(player.name, player.rating);
+                    return;
+                  }
+                  if (compatibleSlots.length === 1) {
+                    onChoose(player.name, player.rating, compatibleSlots[0]);
+                    return;
+                  }
+                  onSetPendingPlayer({
+                    name: player.name,
+                    rating: player.rating,
+                    teamId: drawn.id,
+                    club: drawn.club,
+                    year: drawn.year,
+                    abbr: drawn.abbr,
+                    positions: playerPositions,
+                  });
+                  onSetPhase("positioning");
+                }}
                 className="h-auto w-full justify-between rounded-xl px-4 py-3"
               >
                 <span className="text-left text-xs font-bold">
                   {player.name}
+                  <span className="mt-0.5 flex flex-wrap gap-1">
+                    {playerPositions.map((pos) => (
+                      <span
+                        key={pos}
+                        className="rounded-md border border-secondary/30 bg-secondary/10 px-1.5 py-[1px] text-[9px] font-bold text-secondary"
+                      >
+                        {POSITION_SHORT[pos]}
+                      </span>
+                    ))}
+                  </span>
                   {used && <small className="block text-[9px] text-muted-foreground">Ya seleccionado</small>}
+                  {disabledReason !== "" && !used && (
+                    <small className="block text-[9px] text-destructive">{disabledReason}</small>
+                  )}
                 </span>
                 <span className="flex items-center gap-2 font-black text-primary">
                   {player.rating}
