@@ -5,6 +5,7 @@
 **The goal is that when the dice are rolled, a team is selected and all of its players are displayed. The user will then choose a player, and this player will be included in the formation. If the player can play in more than one position, highlight the squares on the formation so the user can choose where they want to place them.**
 
 ### Drafting flow
+
 1. User rolls dice → random team appears
 2. All players from that team are displayed
 3. User selects a player (not a slot first)
@@ -14,6 +15,7 @@
 7. If the player fits **2+** available slots → valid slots pulse on the field with "Colocar aquí", user clicks where to place them
 
 ### Upgrade flow (between rounds)
+
 1. User clicks a player on the pitch → dice rolls for a new team
 2. Only players whose positions are compatible with the target slot are enabled
 3. Incompatible players show "Posición no compatible"
@@ -21,14 +23,14 @@
 
 ## Implementation — Key Files
 
-| File | Role |
-|---|---|
-| `src/types.ts` | Defines `Phase` (+ `"positioning"`), `PendingPlayer`, `SLOT_POSITION_MAP` (ValidPosition → slot indices), updated `SavedGame` |
-| `src/hooks/useGame.ts` | New state: `pendingPlayer`. New function: `placePlayer(slot)`. Modified `choose` accepts optional `slotOverride`. Positioning treated as build for team exclusions |
-| `src/lib/positionUtils.ts` | `getAvailablePositions(player)` — extracts non-null positions. `getCompatibleSlots(positions, takenSlots)` — maps positions to free slot indices |
-| `src/components/panels/DrawPanel.tsx` | Removed slot selector dropdown. Player clicks now calculate compatible slots: 0 → disabled, 1 → auto-place, 2+ → set `pendingPlayer` + enter `"positioning"` |
-| `src/styles.css` | Added `@keyframes position-pulse`, `.animate-position-target` (pulsing glow), `.animate-position-dim` (dimmed occupied slots) |
-| `src/routes/index.tsx` | Pitch renders compatible slots with glow animation + "Colocar aquí" label. Clicks call `placePlayer(slot)`. Upgrade highlighting unchanged |
+| File                                  | Role                                                                                                                                                               |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/types.ts`                        | Defines `Phase` (+ `"positioning"`), `PendingPlayer`, `SLOT_POSITION_MAP` (ValidPosition → slot indices), updated `SavedGame`                                      |
+| `src/hooks/useGame.ts`                | New state: `pendingPlayer`. New function: `placePlayer(slot)`. Modified `choose` accepts optional `slotOverride`. Positioning treated as build for team exclusions |
+| `src/lib/positionUtils.ts`            | `getAvailablePositions(player)` — extracts non-null positions. `getCompatibleSlots(positions, takenSlots)` — maps positions to free slot indices                   |
+| `src/components/panels/DrawPanel.tsx` | Removed slot selector dropdown. Player clicks now calculate compatible slots: 0 → disabled, 1 → auto-place, 2+ → set `pendingPlayer` + enter `"positioning"`       |
+| `src/styles.css`                      | Added `@keyframes position-pulse`, `.animate-position-target` (pulsing glow), `.animate-position-dim` (dimmed occupied slots)                                      |
+| `src/routes/index.tsx`                | Pitch renders compatible slots with glow animation + "Colocar aquí" label. Clicks call `placePlayer(slot)`. Upgrade highlighting unchanged                         |
 
 ## Tech Stack
 
@@ -101,34 +103,34 @@ The game uses 4-3-3 formation with these slots:
 
 ### Slot-to-position mapping
 
-| Slot | ValidPosition      | Display Code |
-|------|-------------------|--------------|
-| 0    | GOALKEEPER        | ARQ          |
-| 1    | RIGHT BACK        | LD           |
-| 2    | CENTRAL DEFENDER  | DFC          |
-| 3    | CENTRAL DEFENDER  | DFC          |
-| 4    | LEFT BACK         | LI           |
-| 5    | DEFENSIVE MIDFIELDER | MCD       |
-| 6    | CENTRAL MIDFIELDER | MC          |
-| 7    | CENTRAL MIDFIELDER | MC          |
-| 8    | RIGHT WING        | ED           |
-| 9    | CENTRAL FORWARD   | DC           |
-| 10   | LEFT WING         | EI           |
+| Slot | ValidPosition        | Display Code |
+| ---- | -------------------- | ------------ |
+| 0    | GOALKEEPER           | ARQ          |
+| 1    | RIGHT BACK           | LD           |
+| 2    | CENTRAL DEFENDER     | DFC          |
+| 3    | CENTRAL DEFENDER     | DFC          |
+| 4    | LEFT BACK            | LI           |
+| 5    | DEFENSIVE MIDFIELDER | MCD          |
+| 6    | CENTRAL MIDFIELDER   | MC           |
+| 7    | CENTRAL MIDFIELDER   | MC           |
+| 8    | RIGHT WING           | ED           |
+| 9    | CENTRAL FORWARD      | DC           |
+| 10   | LEFT WING            | EI           |
 
 ### SLOT_POSITION_MAP (how player positions map to slots)
 
 | ValidPosition        | Compatible Slots |
-|----------------------|-----------------|
-| GOALKEEPER           | [0]             |
-| RIGHT BACK           | [1]             |
-| CENTRAL DEFENDER     | [2, 3]          |
-| LEFT BACK            | [4]             |
-| DEFENSIVE MIDFIELDER | [5]             |
-| CENTRAL MIDFIELDER   | [6, 7]          |
-| OFFENSIVE MIDFIELDER | [6, 7]          |
-| RIGHT WING           | [8]             |
-| CENTRAL FORWARD      | [9]             |
-| LEFT WING            | [10]            |
+| -------------------- | ---------------- |
+| GOALKEEPER           | [0]              |
+| RIGHT BACK           | [1]              |
+| CENTRAL DEFENDER     | [2, 3]           |
+| LEFT BACK            | [4]              |
+| DEFENSIVE MIDFIELDER | [5]              |
+| CENTRAL MIDFIELDER   | [6, 7]           |
+| OFFENSIVE MIDFIELDER | [6, 7]           |
+| RIGHT WING           | [8]              |
+| CENTRAL FORWARD      | [9]              |
+| LEFT WING            | [10]             |
 
 ## Project Structure
 
