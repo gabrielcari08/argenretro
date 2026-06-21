@@ -77,10 +77,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "ARGENRETRO XI" },
+      { title: "ARGENRETRO" },
       { name: "description", content: "Armá tu XI histórico y conquistá el torneo definitivo del fútbol argentino." },
-      { name: "author", content: "ARGENRETRO XI" },
-      { property: "og:title", content: "ARGENRETRO XI" },
+      { name: "author", content: "ARGENRETRO" },
+      { property: "og:title", content: "ARGENRETRO" },
       { property: "og:description", content: "La historia del fútbol argentino juega de nuevo." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

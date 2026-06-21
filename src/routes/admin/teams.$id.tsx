@@ -12,7 +12,7 @@ import type { HistoricTeam, Player } from "@/types";
 export const Route = createFileRoute("/admin/teams/$id")({
   head: ({ params }) => ({
     meta: [
-      { title: `ARGENRETRO XI | Editando equipo #${params.id}` },
+      { title: `ARGENRETRO | Editando equipo #${params.id}` },
     ],
   }),
   component: TeamEditPage,

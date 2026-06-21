@@ -15,9 +15,9 @@ import { FORMATIONS } from "@/lib/formations";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "ARGENRETRO XI | Torneo histórico argentino" },
-      { name: "description", content: "Armá tu XI con cracks históricos y conquistá el torneo de eliminación directa de ARGENRETRO XI." },
-      { property: "og:title", content: "ARGENRETRO XI" },
+      { title: "ARGENRETRO | Torneo histórico argentino" },
+      { name: "description", content: "Armá tu XI con cracks históricos y conquistá el torneo de eliminación directa de ARGENRETRO." },
+      { property: "og:title", content: "ARGENRETRO" },
       { property: "og:description", content: "El torneo definitivo de equipos históricos del fútbol argentino." },
     ],
   }),
@@ -53,11 +53,11 @@ function Index() {
   if (!formationId) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center px-4">
-        <div className="grid size-20 place-items-center rounded-2xl bg-secondary text-secondary-foreground shadow-[var(--shadow-blue)]">
-          <Shield className="size-10" />
+        <div className="size-36 overflow-hidden rounded-2xl">
+          <img src="/logo.png" alt="ARGENRETRO" className="size-full object-contain" />
         </div>
-        <h1 className="display-type mt-6 text-6xl tracking-wide sm:text-7xl">
-          ARGEN<span className="text-secondary">RETRO</span> XI
+        <h1 className="display-type -mt-2 text-6xl tracking-wide sm:text-7xl">
+                        <span className="text-foreground">ARGEN</span><span className="text-secondary">RETRO</span>
         </h1>
         <p className="mt-2 text-sm font-medium text-muted-foreground">
           Elegí tu formación para empezar
@@ -129,15 +129,15 @@ function Index() {
           <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur-xl">
             <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-4 px-4 py-3 sm:px-7">
               <div className="flex items-center gap-3">
-                <div className="grid size-10 place-items-center rounded-xl bg-secondary text-secondary-foreground">
-                  <Shield />
+                <div className="size-12 overflow-hidden rounded-xl">
+                  <img src="/logo.png" alt="" className="size-full object-contain p-1" />
                 </div>
                 <div>
                   <p className="display-type text-2xl leading-none tracking-wider">
-                    ARGEN<span className="text-secondary">RETRO</span> XI
+                    <span className="text-foreground">ARGEN</span><span className="text-secondary">RETRO</span>
                   </p>
                   <p className="text-[9px] font-black uppercase tracking-[.28em] text-muted-foreground">
-                    La historia juega de nuevo
+                    Demostrá que sabés 
                   </p>
                 </div>
               </div>
@@ -209,9 +209,9 @@ function Index() {
             <section className="order-1 lg:order-2">
               <div className="mb-4 flex items-end justify-between">
                 <div>
-                  <p className="eyebrow">Tu selección · {formation?.name ?? "—"}</p>
+                  <p className="eyebrow">Tu formación · {formation?.name ?? "—"}</p>
                   <h1 className="display-type text-4xl tracking-wide sm:text-5xl">
-                    EL ONCE DE LA HISTORIA
+                    TUS ELEGIDOS
                   </h1>
                 </div>
                 <div className="rounded-2xl border border-primary/30 bg-primary/10 px-4 py-2 text-center">

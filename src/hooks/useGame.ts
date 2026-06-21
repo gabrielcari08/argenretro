@@ -263,9 +263,9 @@ export function useGame() {
   };
 
   const share = async () => {
-    const text = `Mi ARGENRETRO XI tiene ${overall} de valoración. ¿Podés superarlo?`;
+    const text = `Mi ARGENRETRO tiene ${overall} de valoración. ¿Podés superarlo?`;
     if (navigator.share) {
-      await navigator.share({ title: "ARGENRETRO XI", text, url: window.location.href });
+      await navigator.share({ title: "ARGENRETRO", text, url: window.location.href });
     } else {
       await navigator.clipboard.writeText(`${text} ${window.location.href}`);
     }

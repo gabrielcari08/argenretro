@@ -37,7 +37,6 @@ export function DrawPanel({
   if (!drawn) {
     return (
       <section className="rounded-3xl border border-border bg-card p-6 text-center">
-        <p className="eyebrow">Destino retro</p>
         <h2 className="display-type mt-2 text-4xl tracking-wide">SORTEÁ TU CLUB</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           Lanzá el dado y elegí un jugador.
@@ -54,7 +53,7 @@ export function DrawPanel({
           {rolling ? "Girando la historia…" : "Lanzar el dado"}
         </Button>
         <p className="mt-4 text-[9px] font-bold uppercase tracking-[.2em] text-muted-foreground">
-          32 equipos · épocas irrepetibles
+          Equipos inolvidables
         </p>
       </section>
     );

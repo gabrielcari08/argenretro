@@ -10,7 +10,7 @@ import type { HistoricTeam } from "@/types";
 export const Route = createFileRoute("/admin/")({
   head: () => ({
     meta: [
-      { title: "ARGENRETRO XI | Admin" },
+      { title: "ARGENRETRO | Admin" },
     ],
   }),
   component: AdminPage,
@@ -68,7 +68,7 @@ function AdminPage() {
             </div>
             <div>
               <p className="display-type text-2xl leading-none tracking-wider">
-                ARGEN<span className="text-secondary">RETRO</span> XI
+                <span className="text-foreground">ARGEN</span><span className="text-secondary">RETRO</span>
               </p>
               <p className="text-[9px] font-black uppercase tracking-[.28em] text-muted-foreground">
                 Panel de administración
