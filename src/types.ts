@@ -77,5 +77,6 @@ export type SavedGame = {
   phase: Phase;
   formationId: string;
   gameMode: GameMode;
+  rerollsLeft: number;
   pendingPlayer?: PendingPlayer | null;
 };

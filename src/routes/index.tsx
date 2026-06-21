@@ -28,7 +28,7 @@ function Index() {
   const {
     picks, round, phase, drawn, rolling, loaded, replaceIndex,
     liveMinute, liveMatch, selectedSlot, pendingPlayer,
-    formation, formationId, gameMode,
+    formation, formationId, gameMode, rerollsLeft,
     overall, usedPlayers, usedTeams, availableSlots, lastMatch,
     rounds, positions, fieldSpots, slotPositionMap,
     setReplaceIndex, setSelectedSlot, setPendingPlayer,
@@ -308,6 +308,7 @@ function Index() {
                   availableSlots={availableSlots}
                   slotPositionMap={slotPositionMap}
                   gameMode={gameMode}
+                  rerollsLeft={rerollsLeft}
                   onRoll={roll}
                   onChoose={choose}
                   onSetPendingPlayer={setPendingPlayer}

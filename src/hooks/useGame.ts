@@ -24,6 +24,7 @@ export function useGame() {
   const [pendingPlayer, setPendingPlayer] = useState<PendingPlayer | null>(null);
   const [formationId, setFormationId] = useState<string | null>(null);
   const [gameMode, setGameMode] = useState<GameMode>("ayudin");
+  const [rerollsLeft, setRerollsLeft] = useState(3);
   const liveStartedAt = useRef(0);
   const rankingRef = useRef<((score: number) => void) | null>(null);
 
@@ -63,6 +64,7 @@ export function useGame() {
         if (game.pendingPlayer) setPendingPlayer(game.pendingPlayer);
         if (game.formationId) setFormationId(game.formationId);
         if (game.gameMode) setGameMode(game.gameMode);
+        if (game.rerollsLeft !== undefined) setRerollsLeft(game.rerollsLeft);
       } catch {
         window.localStorage.removeItem(SAVE_KEY);
       }
@@ -72,8 +74,8 @@ export function useGame() {
 
   useEffect(() => {
     if (!loaded || !formationId) return;
-    window.localStorage.setItem(SAVE_KEY, JSON.stringify({ picks, round, matches, phase, pendingPlayer, formationId, gameMode } satisfies SavedGame));
-  }, [loaded, matches, phase, picks, pendingPlayer, round, formationId, gameMode]);
+    window.localStorage.setItem(SAVE_KEY, JSON.stringify({ picks, round, matches, phase, pendingPlayer, formationId, gameMode, rerollsLeft } satisfies SavedGame));
+  }, [loaded, matches, phase, picks, pendingPlayer, round, formationId, gameMode, rerollsLeft]);
 
   const overall = picks.length ? Math.round(picks.reduce((sum, pick) => sum + pick.rating, 0) / picks.length) : 0;
 
@@ -96,10 +98,12 @@ export function useGame() {
     setPhase("build");
   };
 
-  const roll = () => {
+  const roll = (isReroll = false) => {
     if (rolling || !teams.length) return;
+    if (isReroll && rerollsLeft <= 0) return;
     setRolling(true);
     setDrawn(null);
+    if (isReroll) setRerollsLeft((r) => r - 1);
     window.setTimeout(() => {
       setDrawn(randomTeam(phase === "build" || phase === "positioning" ? usedTeams : []));
       setRolling(false);
@@ -254,6 +258,7 @@ export function useGame() {
     setSelectedSlot(0);
     setPendingPlayer(null);
     setFormationId(null);
+    setRerollsLeft(3);
     window.localStorage.removeItem(SAVE_KEY);
   };
 
@@ -271,7 +276,7 @@ export function useGame() {
   return {
     teamsLoaded,
     picks, round, phase, drawn, rolling, replaceIndex, loaded,
-    liveMinute, liveMatch, selectedSlot, pendingPlayer, formation, formationId, gameMode,
+    liveMinute, liveMatch, selectedSlot, pendingPlayer, formation, formationId, gameMode, rerollsLeft,
     overall, usedPlayers, usedTeams, availableSlots, lastMatch,
     rounds, positions, positionLabels, fieldSpots, slotPositionMap,
     setReplaceIndex, setSelectedSlot, setPendingPlayer, setDrawn,

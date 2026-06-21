@@ -17,7 +17,7 @@ const POSITION_SHORT: Record<ValidPosition, string> = {
 };
 
 export function DrawPanel({
-  drawn, rolling, picks, replaceIndex, availableSlots, slotPositionMap, gameMode,
+  drawn, rolling, picks, replaceIndex, availableSlots, slotPositionMap, gameMode, rerollsLeft,
   onRoll, onChoose, onSetPendingPlayer, onSetPhase,
 }: {
   drawn: HistoricTeam | null;
@@ -27,7 +27,8 @@ export function DrawPanel({
   availableSlots: { position: string; slot: number; label: string }[];
   slotPositionMap: Record<ValidPosition, number[]>;
   gameMode: GameMode;
-  onRoll: () => void;
+  rerollsLeft: number;
+  onRoll: (isReroll?: boolean) => void;
   onChoose: (name: string, rating: number, slotOverride?: number) => void;
   onSetPendingPlayer: (player: PendingPlayer) => void;
   onSetPhase: (phase: Phase) => void;
@@ -42,14 +43,14 @@ export function DrawPanel({
           Lanzá el dado y elegí un jugador.
         </p>
         <button
-          onClick={onRoll}
+          onClick={() => onRoll(false)}
           disabled={rolling}
           aria-label="Lanzar dado"
           className="mx-auto mt-6 grid size-36 cursor-pointer place-items-center rounded-[2rem] border border-secondary/40 bg-secondary/10 shadow-[var(--shadow-blue)] transition-transform hover:-translate-y-1 disabled:pointer-events-none"
         >
           <Dice5 className={`size-20 text-secondary ${rolling ? "animate-dice" : ""}`} />
         </button>
-        <Button variant="legend" size="xl" className="mt-7 w-full" onClick={onRoll} disabled={rolling}>
+        <Button variant="legend" size="xl" className="mt-7 w-full" onClick={() => onRoll(false)} disabled={rolling}>
           {rolling ? "Girando la historia…" : "Lanzar el dado"}
         </Button>
         <p className="mt-4 text-[9px] font-bold uppercase tracking-[.2em] text-muted-foreground">
@@ -148,9 +149,9 @@ export function DrawPanel({
             );
           })}
         </div>
-        <Button variant="ghost" className="mt-3 w-full text-muted-foreground" onClick={onRoll}>
+        <Button variant="ghost" className="mt-3 w-full text-muted-foreground" onClick={() => onRoll(true)} disabled={rerollsLeft <= 0}>
           <Dice5 />
-          Sortear otro
+          Sortear otro ({rerollsLeft})
         </Button>
       </div>
     </section>
