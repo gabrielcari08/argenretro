@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { getTeamsWithPlayers } from "@/lib/api/teams";
 import { getFormationById, buildSlotPositionMap } from "@/lib/formations";
-import type { HistoricTeam, Pick, Match, LiveMatch, LiveEvent, Phase, SavedGame, PendingPlayer, ValidPosition } from "@/types";
+import type { HistoricTeam, Pick, Match, LiveMatch, LiveEvent, Phase, SavedGame, PendingPlayer, ValidPosition, GameMode } from "@/types";
 
 const SAVE_KEY = "argenretro-xi-save";
 
@@ -23,6 +23,7 @@ export function useGame() {
   const [selectedSlot, setSelectedSlot] = useState(0);
   const [pendingPlayer, setPendingPlayer] = useState<PendingPlayer | null>(null);
   const [formationId, setFormationId] = useState<string | null>(null);
+  const [gameMode, setGameMode] = useState<GameMode>("ayudin");
   const liveStartedAt = useRef(0);
   const rankingRef = useRef<((score: number) => void) | null>(null);
 
@@ -61,6 +62,7 @@ export function useGame() {
         setPhase(loadedPhase === "positioning" ? "build" : loadedPhase);
         if (game.pendingPlayer) setPendingPlayer(game.pendingPlayer);
         if (game.formationId) setFormationId(game.formationId);
+        if (game.gameMode) setGameMode(game.gameMode);
       } catch {
         window.localStorage.removeItem(SAVE_KEY);
       }
@@ -70,8 +72,8 @@ export function useGame() {
 
   useEffect(() => {
     if (!loaded || !formationId) return;
-    window.localStorage.setItem(SAVE_KEY, JSON.stringify({ picks, round, matches, phase, pendingPlayer, formationId } satisfies SavedGame));
-  }, [loaded, matches, phase, picks, pendingPlayer, round, formationId]);
+    window.localStorage.setItem(SAVE_KEY, JSON.stringify({ picks, round, matches, phase, pendingPlayer, formationId, gameMode } satisfies SavedGame));
+  }, [loaded, matches, phase, picks, pendingPlayer, round, formationId, gameMode]);
 
   const overall = picks.length ? Math.round(picks.reduce((sum, pick) => sum + pick.rating, 0) / picks.length) : 0;
 
@@ -88,8 +90,9 @@ export function useGame() {
     return pool[Math.floor(Math.random() * pool.length)] ?? teams[0];
   };
 
-  const selectFormation = (id: string) => {
+  const selectFormation = (id: string, mode: GameMode) => {
     setFormationId(id);
+    setGameMode(mode);
     setPhase("build");
   };
 
@@ -156,10 +159,26 @@ export function useGame() {
   const simulate = () => {
     const rival = randomTeam();
     const edge = overall - rival.rating;
-    const userGoals = Math.max(0, Math.min(5, Math.floor(Math.random() * 3 + (edge + 8) / 14)));
-    let rivalGoals = Math.max(0, Math.min(5, Math.floor(Math.random() * 3 + (-edge + 8) / 14)));
-    if (userGoals === rivalGoals) rivalGoals += Math.random() < 0.58 + edge / 100 ? -1 : 1;
-    rivalGoals = Math.max(0, rivalGoals);
+
+    const userExpected = 1.25 + edge * 0.04;
+    const rivalExpected = 1.25 - edge * 0.04;
+
+    let userGoals = Math.max(0, Math.min(4, Math.round(userExpected + (Math.random() * 1.6 - 0.8))));
+    let rivalGoals = Math.max(0, Math.min(4, Math.round(rivalExpected + (Math.random() * 1.6 - 0.8))));
+
+    if (userGoals >= 3 && rivalGoals >= 3) {
+      if (userGoals > rivalGoals) rivalGoals = 2;
+      else userGoals = Math.min(userGoals, 2);
+    }
+
+    if (userGoals === rivalGoals) {
+      if (edge > 3) rivalGoals = Math.max(0, rivalGoals - 1);
+      else if (edge < -3) userGoals = Math.max(0, userGoals - 1);
+      else {
+        if (Math.random() < 0.52 + edge * 0.003) rivalGoals = Math.max(0, rivalGoals - 1);
+        else userGoals = Math.max(0, userGoals - 1);
+      }
+    }
     const won = userGoals > rivalGoals;
     const eligibleScorers = picks.filter((pick) => !goalkeeperNames.has(pick.name));
     const scorers = Array.from({ length: userGoals }, (_, index) =>
@@ -252,7 +271,7 @@ export function useGame() {
   return {
     teamsLoaded,
     picks, round, phase, drawn, rolling, replaceIndex, loaded,
-    liveMinute, liveMatch, selectedSlot, pendingPlayer, formation, formationId,
+    liveMinute, liveMatch, selectedSlot, pendingPlayer, formation, formationId, gameMode,
     overall, usedPlayers, usedTeams, availableSlots, lastMatch,
     rounds, positions, positionLabels, fieldSpots, slotPositionMap,
     setReplaceIndex, setSelectedSlot, setPendingPlayer, setDrawn,

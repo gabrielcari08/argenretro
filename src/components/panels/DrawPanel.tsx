@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Dice5, ChevronRight } from "lucide-react";
-import type { HistoricTeam, Pick, PendingPlayer, Phase, ValidPosition } from "@/types";
+import type { HistoricTeam, Pick, PendingPlayer, Phase, ValidPosition, GameMode } from "@/types";
 import { getAvailablePositions, getCompatibleSlots } from "@/lib/positionUtils";
 
 const POSITION_SHORT: Record<ValidPosition, string> = {
@@ -17,7 +17,7 @@ const POSITION_SHORT: Record<ValidPosition, string> = {
 };
 
 export function DrawPanel({
-  drawn, rolling, picks, replaceIndex, availableSlots, slotPositionMap,
+  drawn, rolling, picks, replaceIndex, availableSlots, slotPositionMap, gameMode,
   onRoll, onChoose, onSetPendingPlayer, onSetPhase,
 }: {
   drawn: HistoricTeam | null;
@@ -26,11 +26,13 @@ export function DrawPanel({
   replaceIndex: number | null;
   availableSlots: { position: string; slot: number; label: string }[];
   slotPositionMap: Record<ValidPosition, number[]>;
+  gameMode: GameMode;
   onRoll: () => void;
   onChoose: (name: string, rating: number, slotOverride?: number) => void;
   onSetPendingPlayer: (player: PendingPlayer) => void;
   onSetPhase: (phase: Phase) => void;
 }) {
+  const showOvr = gameMode === "ayudin";
   if (!drawn) {
     return (
       <section className="rounded-3xl border border-border bg-card p-6 text-center">
@@ -74,7 +76,7 @@ export function DrawPanel({
       <div className="p-5">
         <div className="mb-3 mt-2 flex items-center justify-between">
           <p className="text-xs font-black uppercase tracking-wider">Jugadores</p>
-          <span className="text-xs text-muted-foreground">OVR</span>
+          {showOvr && <span className="text-xs text-muted-foreground">OVR</span>}
         </div>
         <div className="space-y-2">
           {(drawn.players ?? []).map((player) => {
@@ -139,7 +141,7 @@ export function DrawPanel({
                   )}
                 </span>
                 <span className="flex items-center gap-2 font-black text-primary">
-                  {player.rating}
+                  {showOvr ? player.rating : "—"}
                   <ChevronRight className="size-3" />
                 </span>
               </Button>

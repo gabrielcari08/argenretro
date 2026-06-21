@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, RotateCcw, Shield, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useGame } from "@/hooks/useGame";
@@ -28,13 +28,15 @@ function Index() {
   const {
     picks, round, phase, drawn, rolling, loaded, replaceIndex,
     liveMinute, liveMatch, selectedSlot, pendingPlayer,
-    formation, formationId,
+    formation, formationId, gameMode,
     overall, usedPlayers, usedTeams, availableSlots, lastMatch,
     rounds, positions, fieldSpots, slotPositionMap,
     setReplaceIndex, setSelectedSlot, setPendingPlayer,
     roll, choose, placePlayer, simulate, continueRound, reset, share,
     setSaveRanking, setPhase, selectFormation,
   } = useGame();
+
+  const [selectedMode, setSelectedMode] = useState<"ayudin" | "macaya">("ayudin");
 
   const { saveRanking } = useRanking();
   const saveRankingRef = useRef(saveRanking);
@@ -60,11 +62,37 @@ function Index() {
         <p className="mt-2 text-sm font-medium text-muted-foreground">
           Elegí tu formación para empezar
         </p>
-        <div className="mt-10 grid w-full max-w-2xl grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+
+        <div className="mt-8 flex gap-3">
+          <button
+            onClick={() => setSelectedMode("ayudin")}
+            className={`rounded-xl border-2 px-6 py-3 text-left transition-all ${
+              selectedMode === "ayudin"
+                ? "border-secondary bg-secondary/10 text-secondary"
+                : "border-border text-muted-foreground hover:border-secondary/30"
+            }`}
+          >
+            <p className="text-sm font-bold">Modo Ayudín</p>
+            <p className="mt-0.5 text-[10px] text-muted-foreground">Ver OVR de jugadores</p>
+          </button>
+          <button
+            onClick={() => setSelectedMode("macaya")}
+            className={`rounded-xl border-2 px-6 py-3 text-left transition-all ${
+              selectedMode === "macaya"
+                ? "border-secondary bg-secondary/10 text-secondary"
+                : "border-border text-muted-foreground hover:border-secondary/30"
+            }`}
+          >
+            <p className="text-sm font-bold">Modo Macaya</p>
+            <p className="mt-0.5 text-[10px] text-muted-foreground">OVR oculto hasta el final</p>
+          </button>
+        </div>
+
+        <div className="mt-6 grid w-full max-w-2xl grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {FORMATIONS.map((f) => (
             <button
               key={f.id}
-              onClick={() => selectFormation(f.id)}
+              onClick={() => selectFormation(f.id, selectedMode)}
               className="rounded-2xl border border-border bg-card p-4 text-left transition-all hover:-translate-y-1 hover:border-secondary/50 hover:shadow-[var(--shadow-blue)]"
             >
               <p className="text-lg font-bold text-secondary">{f.name}</p>
@@ -279,6 +307,7 @@ function Index() {
                   replaceIndex={replaceIndex}
                   availableSlots={availableSlots}
                   slotPositionMap={slotPositionMap}
+                  gameMode={gameMode}
                   onRoll={roll}
                   onChoose={choose}
                   onSetPendingPlayer={setPendingPlayer}

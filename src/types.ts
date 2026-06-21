@@ -56,6 +56,8 @@ export type LiveMatch = {
   events: LiveEvent[];
 };
 
+export type GameMode = "ayudin" | "macaya";
+
 export type Phase = "build" | "positioning" | "ready" | "live" | "result" | "upgrade" | "lost" | "champion";
 
 export type PendingPlayer = {
@@ -74,5 +76,6 @@ export type SavedGame = {
   matches: Match[];
   phase: Phase;
   formationId: string;
+  gameMode: GameMode;
   pendingPlayer?: PendingPlayer | null;
 };
