@@ -342,8 +342,9 @@ function Index() {
                   champion={phase === "champion"}
                   match={lastMatch}
                   overall={overall}
+                  picks={picks}
+                  formationName={formation?.name ?? ""}
                   onReset={reset}
-                  onShare={share}
                 />
               )}
 
