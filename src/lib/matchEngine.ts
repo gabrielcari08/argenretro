@@ -1,4 +1,4 @@
-import type { SimulationInput, SimulationResult, Match, Attack, AttackOutcome, PenaltyKick } from "@/types";
+import type { SimulationInput, SimulationResult, Match, Attack, AttackOutcome } from "@/types";
 import { SeededRNG } from "./SeededRNG";
 
 import {
@@ -38,6 +38,38 @@ function scoreFromAttacks(attacks: Attack[], side: "user" | "rival"): number {
   return attacks.filter((a) => a.outcome === "goal" && a.side === side).length;
 }
 
+const POSITION_MULTIPLIER: Record<string, number> = {
+  "CENTRAL FORWARD": 3,
+  "LEFT WING": 3,
+  "RIGHT WING": 3,
+  "OFFENSIVE MIDFIELDER": 3,
+  "CENTRAL MIDFIELDER": 2,
+  "DEFENSIVE MIDFIELDER": 2,
+  "CENTRAL DEFENDER": 1,
+  "LEFT BACK": 1,
+  "RIGHT BACK": 1,
+};
+
+function pickWeightedScorer(
+  players: { name: string; rating: number; position?: string; position_1?: string }[],
+  rng: SeededRNG,
+): string {
+  const totalWeight = players.reduce((sum, p) => {
+    const pos = p.position ?? p.position_1 ?? "";
+    const mult = POSITION_MULTIPLIER[pos] ?? 1;
+    return sum + p.rating * mult;
+  }, 0);
+  if (totalWeight <= 0) return players[0]?.name ?? "Gol en contra";
+  let roll = rng.next() * totalWeight;
+  for (const p of players) {
+    const pos = p.position ?? p.position_1 ?? "";
+    const mult = POSITION_MULTIPLIER[pos] ?? 1;
+    roll -= p.rating * mult;
+    if (roll <= 0) return p.name;
+  }
+  return players[players.length - 1]?.name ?? "Gol en contra";
+}
+
 function pickAttackScorer(
   side: "user" | "rival",
   config: MatchConfig,
@@ -46,11 +78,11 @@ function pickAttackScorer(
   if (side === "user") {
     const eligible = config.picks.filter((p) => !config.goalkeeperNames.has(p.name));
     if (eligible.length === 0) return "Gol en contra";
-    return eligible[Math.floor(rng.next() * eligible.length)]?.name ?? "Gol en contra";
+    return pickWeightedScorer(eligible, rng);
   }
   const rivalPlayers = config.rival.players?.slice(1) ?? [];
   if (rivalPlayers.length === 0) return config.rival.club;
-  return rivalPlayers[Math.floor(rng.next() * rivalPlayers.length)]?.name ?? config.rival.club;
+  return pickWeightedScorer(rivalPlayers, rng);
 }
 
 function computeAttackProb(
@@ -312,7 +344,7 @@ function simulatePenalties(
   rival: SimulationInput["rival"],
   goalkeeperNames: Set<string>,
   rng: SeededRNG,
-): { userScore: number; rivalScore: number; kicks: PenaltyKick[] } {
+): { userScore: number; rivalScore: number; kicks: import("@/types").PenaltyKick[] } {
   const eligibleKickers = picks
     .filter((p) => !goalkeeperNames.has(p.name))
     .sort((a, b) => b.rating - a.rating);
@@ -323,8 +355,8 @@ function simulatePenalties(
   const rivalPlayers = rival.players ?? [];
   const rivalGk = rivalPlayers.find((p) => p.position_1 === "GOALKEEPER");
   const rivalGkRating = rivalGk?.rating ?? rival.rating;
-
   const userGkRating = picks.find((p) => goalkeeperNames.has(p.name))?.rating ?? 50;
+
   const rivalKickers = rivalPlayers
     .filter((p) => p.position_1 !== "GOALKEEPER")
     .sort((a, b) => b.rating - a.rating)
@@ -333,56 +365,48 @@ function simulatePenalties(
   const rivalInitial = rivalFullPool.slice(0, 5);
   const rivalReserve = rivalFullPool.slice(5);
 
-  const kicks: PenaltyKick[] = [];
-  let userScore = 0;
-  let rivalScore = 0;
-  let round = 0;
+  const kicks: import("@/types").PenaltyKick[] = [];
+  let userScore = 0, rivalScore = 0, round = 0;
   let isSuddenDeath = false;
+  let userIdx = 0, rivalIdx = 0, userReserveIdx = 0, rivalReserveIdx = 0;
+  let userCycle = 0, rivalCycle = 0;
 
-  let userIdx = 0;
-  let rivalIdx = 0;
-  let userReserveIdx = 0;
-  let rivalReserveIdx = 0;
-  let userCycleIdx = 0;
-  let rivalCycleIdx = 0;
-
-  function nextUserKicker(): string {
+  const nextUser = (): string => {
     if (userIdx < initialKickers.length) return initialKickers[userIdx++];
     if (userReserveIdx < reserveKickers.length) return reserveKickers[userReserveIdx++];
-    return initialKickers[userCycleIdx++ % initialKickers.length];
-  }
-
-  function nextRivalKicker(): string {
+    return initialKickers[userCycle++ % initialKickers.length];
+  };
+  const nextRival = (): string => {
     if (rivalIdx < rivalInitial.length) return rivalInitial[rivalIdx++];
     if (rivalReserveIdx < rivalReserve.length) return rivalReserve[rivalReserveIdx++];
-    return rivalInitial[rivalCycleIdx++ % rivalInitial.length];
-  }
+    return rivalInitial[rivalCycle++ % rivalInitial.length];
+  };
 
   while (true) {
-    const userKicker = nextUserKicker();
-    const userRating = picks.find((p) => p.name === userKicker)?.rating ?? 50;
-    const userProb = Math.min(0.99, 0.75 + (userRating - rivalGkRating) / 200);
-    const userScored = rng.next() < userProb;
-    if (userScored) userScore++;
-    kicks.push({ round: round + 1, shooter: userKicker, shooterTeam: "user", scored: userScored, isSuddenDeath });
+    const uName = nextUser();
+    const uRating = picks.find((p) => p.name === uName)?.rating ?? 50;
+    const uProb = Math.min(0.99, 0.75 + (uRating - rivalGkRating) / 200);
+    const uScored = rng.next() < uProb;
+    if (uScored) userScore++;
+    kicks.push({ round: round + 1, shooter: uName, shooterTeam: "user", scored: uScored, isSuddenDeath });
 
-    const rivalKicker = nextRivalKicker();
-    const rivalRating = rivalPlayers.find((p) => p.name === rivalKicker)?.rating ?? 50;
-    const rivalProb = Math.min(0.99, 0.75 + (rivalRating - userGkRating) / 200);
-    const rivalScored = rng.next() < rivalProb;
-    if (rivalScored) rivalScore++;
-    kicks.push({ round: round + 1, shooter: rivalKicker, shooterTeam: "rival", scored: rivalScored, isSuddenDeath });
+    const rName = nextRival();
+    const rRating = rivalPlayers.find((p) => p.name === rName)?.rating ?? 50;
+    const rProb = Math.min(0.99, 0.75 + (rRating - userGkRating) / 200);
+    const rScored = rng.next() < rProb;
+    if (rScored) rivalScore++;
+    kicks.push({ round: round + 1, shooter: rName, shooterTeam: "rival", scored: rScored, isSuddenDeath });
 
     round++;
-
-    if (!isSuddenDeath && round >= 5) {
-      if (userScore !== rivalScore) break;
-      isSuddenDeath = true;
-    } else if (isSuddenDeath && userScored !== rivalScored) {
-      break;
-    }
+    if (!isSuddenDeath) {
+      const remaining = 5 - round;
+      if (Math.abs(userScore - rivalScore) > remaining) break;
+      if (round >= 5) {
+        if (userScore !== rivalScore) break;
+        isSuddenDeath = true;
+      }
+    } else if (isSuddenDeath && uScored !== rScored) break;
   }
-
   return { userScore, rivalScore, kicks };
 }
 
@@ -433,23 +457,15 @@ export function simulate(input: SimulationInput): SimulationResult {
           goal: k.scored,
         });
       }
-      const lastKick = pkResult.kicks[pkResult.kicks.length - 1];
-      const wonPenalties = lastKick.shooterTeam === "user" && lastKick.scored;
+      const won = pkResult.userScore > pkResult.rivalScore;
       allEvents.push({
         minute: 121 + pkResult.kicks.length + 1,
-        text: wonPenalties ? "¡ARGENRETRO gana por penales!" : `Se terminó. ${rival.club} gana por penales.`,
-        side: wonPenalties ? "user" : "rival",
+        text: won ? "¡ARGENRETRO gana por penales!" : `Se terminó. ${rival.club} gana por penales.`,
+        side: won ? "user" : "rival",
       });
-
-      const won = pkResult.userScore > pkResult.rivalScore;
-
-      const finalUserGoals = scoreFromAttacks(allAttacks, "user");
-      const finalRivalGoals = scoreFromAttacks(allAttacks, "rival");
-
       const scorers = allAttacks
         .filter((a) => a.outcome === "goal" && a.side === "user")
         .map((a) => a.scorer ?? "Gol en contra");
-
       const userShots = allAttacks.filter((a) => a.side === "user" && a.outcome !== "build_up_broken").length;
       const rivalShots = allAttacks.filter((a) => a.side === "rival" && a.outcome !== "build_up_broken").length;
       const totalShots = userShots + rivalShots;
@@ -459,8 +475,8 @@ export function simulate(input: SimulationInput): SimulationResult {
         round,
         rival: `${rival.club} ${rival.year}`,
         rivalRating: rival.rating,
-        userGoals: finalUserGoals,
-        rivalGoals: finalRivalGoals,
+        userGoals: etUserGoals,
+        rivalGoals: etRivalGoals,
         scorers,
         possession,
         shots: userShots,

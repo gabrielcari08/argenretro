@@ -1,5 +1,5 @@
 import { Radio, Swords, CircleDot } from "lucide-react";
-import type { LiveMatch } from "@/types";
+import type { LiveMatch, LiveEvent } from "@/types";
 
 export function LiveMatchPanel({
   live, minute,
@@ -7,9 +7,8 @@ export function LiveMatchPanel({
   live: LiveMatch;
   minute: number;
 }) {
-  const isET = live.match.extraTime ?? false;
   const isPenalties = live.match.penalties ?? false;
-  const totalMinutes = isPenalties ? 140 : isET ? 120 : 90;
+  const isET = live.match.extraTime ?? false;
 
   const visible = live.events.filter((event) => event.minute <= minute);
   const current = visible[visible.length - 1];
@@ -18,7 +17,17 @@ export function LiveMatchPanel({
   const currentUserScore = visibleGoals.filter((e) => e.side === "user").length;
   const currentRivalScore = visibleGoals.filter((e) => e.side === "rival").length;
 
-  const phaseLabel = isPenalties ? "Penales" : isET ? "Tiempo extra" : "En vivo";
+  const visiblePenaltyGoals = visible.filter((e) => e.goal && e.minute > 120);
+  const pkUser = visiblePenaltyGoals.filter((e) => e.side === "user").length;
+  const pkRival = visiblePenaltyGoals.filter((e) => e.side === "rival").length;
+
+  const phaseLabel = isPenalties && minute > 120 ? "Penales" : isET && minute > 90 ? "Tiempo extra" : "En vivo";
+
+  const segmentProgress = minute <= 90
+    ? minute / 90
+    : minute <= 120
+    ? (minute - 90) / 30
+    : 1;
 
   return (
     <section className="animate-rise overflow-hidden rounded-3xl border border-secondary/40 bg-card">
@@ -35,10 +44,10 @@ export function LiveMatchPanel({
           </b>
           <div className="w-24 text-xs font-extrabold">{live.match.rival}</div>
         </div>
-        {isPenalties && live.match.penaltyScore && minute > 120 && (
+        {isPenalties && minute > 120 && (
           <div className="mt-1 flex items-center justify-center gap-2">
             <span className="rounded-full bg-destructive/20 px-3 py-0.5 text-[10px] font-black uppercase tracking-wider text-destructive">
-              Penales: {live.match.penaltyScore[0]} — {live.match.penaltyScore[1]}
+              Penales: {pkUser} — {pkRival}
             </span>
           </div>
         )}
@@ -48,7 +57,7 @@ export function LiveMatchPanel({
         <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-muted">
           <div
             className="h-full bg-secondary transition-[width] duration-100"
-            style={{ width: `${Math.min(minute / totalMinutes * 100, 100)}%` }}
+            style={{ width: `${segmentProgress * 100}%` }}
           />
         </div>
       </div>
@@ -84,9 +93,6 @@ export function LiveMatchPanel({
             </div>
           ))}
         </div>
-        <p className="mt-4 text-center text-[9px] font-bold uppercase tracking-[.18em] text-muted-foreground">
-          {totalMinutes} minutos resumidos en {Math.round(totalMinutes / 90 * 20)} segundos
-        </p>
       </div>
     </section>
   );

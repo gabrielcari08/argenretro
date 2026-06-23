@@ -27,6 +27,7 @@ export function useGame() {
   const [gameMode, setGameMode] = useState<GameMode>("ayudin");
   const [rerollsLeft, setRerollsLeft] = useState(3);
   const liveStartedAt = useRef(0);
+  const penaltyStepRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rankingRef = useRef<((score: number) => void) | null>(null);
 
   const formation = formationId ? getFormationById(formationId) ?? null : null;
@@ -161,6 +162,19 @@ export function useGame() {
     setDrawn(null);
   };
 
+  const endMatch = useCallback((match: Match) => {
+    setMatches((value) => [...value, match]);
+    if (!match.won) {
+      setPhase("lost");
+      rankingRef.current?.(overall);
+    } else if (round === 3) {
+      setPhase("champion");
+      rankingRef.current?.(overall);
+    } else {
+      setPhase("result");
+    }
+  }, [round, overall]);
+
   const simulate = () => {
     const rival = randomTeam();
     const result = simulateMatch({
@@ -170,7 +184,7 @@ export function useGame() {
       round: rounds[round],
       goalkeeperNames,
     });
-    setLiveMinute(0);
+    setLiveMinute(1);
     setLiveMatch(result);
     setPhase("live");
   };
@@ -178,26 +192,39 @@ export function useGame() {
   useEffect(() => {
     if (phase !== "live" || !liveMatch) return;
     liveStartedAt.current = Date.now();
-    const totalMinutes = liveMatch.match.penalties ? 140 : liveMatch.match.extraTime ? 120 : 90;
-    const realDuration = liveMatch.match.penalties ? 40000 : liveMatch.match.extraTime ? 34000 : 20000;
+    const hasPenalties = liveMatch.match.penalties ?? false;
+    const hasET = liveMatch.match.extraTime ?? false;
+    const totalMinutes = hasPenalties ? 120 : hasET ? 120 : 90;
+    const realDuration = hasPenalties ? 34000 : hasET ? 34000 : 20000;
+
     const timer = window.setInterval(() => {
       const minute = Math.min(totalMinutes, Math.floor((Date.now() - liveStartedAt.current) / realDuration * totalMinutes));
       setLiveMinute(minute);
       if (minute < totalMinutes) return;
       window.clearInterval(timer);
-      setMatches((value) => [...value, liveMatch.match]);
-      if (!liveMatch.match.won) {
-        setPhase("lost");
-        rankingRef.current?.(overall);
-      } else if (round === 3) {
-        setPhase("champion");
-        rankingRef.current?.(overall);
+
+      if (liveMatch.match.penalties) {
+        let idx = 0;
+        const pkEvents = liveMatch.events.filter((e) => e.minute > 120);
+        const step = () => {
+          if (idx >= pkEvents.length) {
+            endMatch(liveMatch.match);
+            return;
+          }
+          setLiveMinute(121 + idx);
+          idx++;
+          penaltyStepRef.current = setTimeout(step, 2200);
+        };
+        step();
       } else {
-        setPhase("result");
+        endMatch(liveMatch.match);
       }
     }, 100);
-    return () => window.clearInterval(timer);
-  }, [phase, liveMatch, round, overall]);
+    return () => {
+      window.clearInterval(timer);
+      if (penaltyStepRef.current) clearTimeout(penaltyStepRef.current);
+    };
+  }, [phase, liveMatch, endMatch]);
 
   const continueRound = (_change: boolean) => {
     setRound((value) => value + 1);
