@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { getTeamsWithPlayers } from "@/lib/api/teams";
 import { getFormationById, buildSlotPositionMap } from "@/lib/formations";
+import { simulate as simulateMatch } from "@/lib/matchEngine";
 import type { HistoricTeam, Pick, Match, LiveMatch, LiveEvent, Phase, SavedGame, PendingPlayer, ValidPosition, GameMode } from "@/types";
 
 const SAVE_KEY = "argenretro-xi-save";
@@ -162,71 +163,27 @@ export function useGame() {
 
   const simulate = () => {
     const rival = randomTeam();
-    const edge = overall - rival.rating;
-
-    const userExpected = 1.25 + edge * 0.04;
-    const rivalExpected = 1.25 - edge * 0.04;
-
-    let userGoals = Math.max(0, Math.min(4, Math.round(userExpected + (Math.random() * 1.6 - 0.8))));
-    let rivalGoals = Math.max(0, Math.min(4, Math.round(rivalExpected + (Math.random() * 1.6 - 0.8))));
-
-    if (userGoals >= 3 && rivalGoals >= 3) {
-      if (userGoals > rivalGoals) rivalGoals = 2;
-      else userGoals = Math.min(userGoals, 2);
-    }
-
-    if (userGoals === rivalGoals) {
-      if (edge > 3) rivalGoals = Math.max(0, rivalGoals - 1);
-      else if (edge < -3) userGoals = Math.max(0, userGoals - 1);
-      else {
-        if (Math.random() < 0.52 + edge * 0.003) rivalGoals = Math.max(0, rivalGoals - 1);
-        else userGoals = Math.max(0, userGoals - 1);
-      }
-    }
-    const won = userGoals > rivalGoals;
-    const eligibleScorers = picks.filter((pick) => !goalkeeperNames.has(pick.name));
-    const scorers = Array.from({ length: userGoals }, (_, index) =>
-      eligibleScorers[(index * 3 + Math.floor(Math.random() * eligibleScorers.length)) % eligibleScorers.length]?.name ?? "Gol en contra",
-    );
-    const match: Match = {
-      round: rounds[round], rival: `${rival.club} ${rival.year}`, rivalRating: rival.rating,
-      userGoals, rivalGoals, scorers,
-      possession: Math.max(38, Math.min(64, 51 + edge + Math.floor(Math.random() * 7) - 3)),
-      shots: 7 + userGoals * 2 + Math.floor(Math.random() * 6), won,
-    };
-    const goalMinutes = Array.from({ length: userGoals + rivalGoals }, (_, index) =>
-      8 + Math.floor((index + 1) * 78 / (userGoals + rivalGoals + 1)) + Math.floor(Math.random() * 7) - 3,
-    ).sort((a, b) => a - b);
-    const events: LiveEvent[] = [
-      { minute: 1, text: "¡Rueda la pelota! Comienza el partido.", side: "neutral" },
-      { minute: 12, text: `${rival.club} avisa con un remate desde afuera.`, side: "rival" },
-      { minute: 29, text: `${picks[6]?.name ?? "El mediocampo"} maneja los tiempos del XI.`, side: "user" },
-      { minute: 45, text: "Final del primer tiempo.", side: "neutral" },
-      { minute: 57, text: "Gran atajada para sostener el resultado.", side: "neutral" },
-      { minute: 72, text: "El partido entra en su tramo decisivo.", side: "neutral" },
-      { minute: 90, text: "¡Final del partido!", side: "neutral" },
-    ];
-    let userIndex = 0;
-    let rivalIndex = 0;
-    goalMinutes.forEach((minute, index) => {
-      const userGoal = index < userGoals;
-      const rivalScorers = rival.players?.slice(1) ?? [];
-      const rivalName = rivalScorers[rivalIndex++ % rivalScorers.length]?.name;
-      const scorer = userGoal ? scorers[userIndex++] : rivalName ?? rival.club;
-      events.push({ minute, text: `¡GOL de ${scorer}!`, side: userGoal ? "user" : "rival", goal: true });
+    const result = simulateMatch({
+      picks,
+      overall,
+      rival,
+      round: rounds[round],
+      goalkeeperNames,
     });
     setLiveMinute(0);
-    setLiveMatch({ match, events: events.sort((a, b) => a.minute - b.minute) });
+    setLiveMatch(result);
     setPhase("live");
   };
 
   useEffect(() => {
     if (phase !== "live" || !liveMatch) return;
     liveStartedAt.current = Date.now();
+    const totalMinutes = liveMatch.match.penalties ? 140 : liveMatch.match.extraTime ? 120 : 90;
+    const realDuration = liveMatch.match.penalties ? 40000 : liveMatch.match.extraTime ? 34000 : 20000;
     const timer = window.setInterval(() => {
-      const minute = Math.min(90, Math.floor((Date.now() - liveStartedAt.current) / 20000 * 90));
+      const minute = Math.min(totalMinutes, Math.floor((Date.now() - liveStartedAt.current) / realDuration * totalMinutes));
       setLiveMinute(minute);
-      if (minute < 90) return;
+      if (minute < totalMinutes) return;
       window.clearInterval(timer);
       setMatches((value) => [...value, liveMatch.match]);
       if (!liveMatch.match.won) {

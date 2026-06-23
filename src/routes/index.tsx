@@ -334,6 +334,7 @@ function Index() {
               {phase === "result" && lastMatch && (
                 <ResultPanel
                   match={lastMatch}
+                  events={liveMatch?.events ?? []}
                   onContinue={continueRound}
                 />
               )}

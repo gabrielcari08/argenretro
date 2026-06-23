@@ -42,6 +42,27 @@ export type Match = {
   possession: number;
   shots: number;
   won: boolean;
+  extraTime?: boolean;
+  penalties?: boolean;
+  penaltyScore?: [number, number];
+};
+
+export type AttackOutcome = "goal" | "saved" | "missed" | "blocked" | "build_up_broken";
+
+export type Attack = {
+  minute: number;
+  side: "user" | "rival";
+  outcome: AttackOutcome;
+  isBigChance: boolean;
+  scorer?: string;
+};
+
+export type PenaltyKick = {
+  round: number;
+  shooter: string;
+  shooterTeam: "user" | "rival";
+  scored: boolean;
+  isSuddenDeath: boolean;
 };
 
 export type LiveEvent = {
@@ -79,4 +100,21 @@ export type SavedGame = {
   gameMode: GameMode;
   rerollsLeft: number;
   pendingPlayer?: PendingPlayer | null;
+};
+
+export type SimulationInput = {
+  picks: Pick[];
+  overall: number;
+  rival: HistoricTeam;
+  round: string;
+  goalkeeperNames: Set<string>;
+  seed?: number;
+};
+
+export type SimulationResult = {
+  match: Match;
+  events: LiveEvent[];
+  seed: number;
+  penaltyKicks?: PenaltyKick[];
+  totalMinutes: number;
 };
